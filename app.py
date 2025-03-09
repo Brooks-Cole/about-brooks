@@ -136,28 +136,28 @@ Regards,
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    # Initialize session if not already set
-    if 'current_step' not in session:
-        session['current_step'] = 1
-        session['completed_steps'] = []
-        session['history'] = []
-        session['goal'] = None
-        session['step_evaluations'] = {}
-
-    data = request.get_json()
-    user_input = data.get('user_input', '')
-    
-    # Get and truncate history to manage token count
-    history = truncate_history(session.get('history', []))
-    goal = session.get('goal')
-
-    current_step = session['current_step']
-    step_function = step_functions[current_step]
-    
     try:
+        # Initialize session if not already set
+        if 'current_step' not in session:
+            print("Initializing new session")
+            session['current_step'] = 1
+            session['completed_steps'] = []
+            session['history'] = []
+            session['goal'] = None
+            session['step_evaluations'] = {}
+
+        data = request.get_json()
+        user_input = data.get('user_input', '')
+        
+        # Get and truncate history to manage token count
+        history = truncate_history(session.get('history', []))
+        goal = session.get('goal')
+
+        current_step = session['current_step']
+        step_function = step_functions[current_step]
+        
         # Handle special case for first message - we'll auto-generate a welcome message
         if len(history) == 0 and user_input.lower() in ['hi', 'hello', 'hey', 'start']:
-            # For the first interaction, send a warm, conversational welcome
             welcome_message = (
                 "STEP 1: HAVE CLEAR GOALS\n\n"
                 "Hi there! I'm excited to guide you through a powerful process that's helped countless people achieve their goals. "
@@ -241,6 +241,8 @@ def chat():
         # Handle any errors
         error_message = f"An error occurred: {str(e)}"
         print(error_message)  # Log the error
+        import traceback
+        traceback.print_exc()  # Print full traceback for debugging
         
         # Create a more user-friendly message
         user_error_message = "I encountered an error. Please try again or reset the conversation."
@@ -248,6 +250,8 @@ def chat():
         # Check for common error types
         if "token" in str(e).lower() or "exceed" in str(e).lower() or "overload" in str(e).lower():
             user_error_message = "The conversation has become too long. Please reset the conversation to continue."
+        elif "api" in str(e).lower() or "anthropic" in str(e).lower() or "key" in str(e).lower():
+            user_error_message = "There was an issue connecting to the AI service. Please check server configuration."
         
         return jsonify({
             'main_response': user_error_message,
