@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>5-Step Process Coach</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.5;
+        }
+        
+        #container {
+            display: flex;
+            max-width: 1200px;
+            margin: 0 auto;
+            gap: 20px;
+        }
+        
+        #left-panel {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #completed-steps {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        #chat-history {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            height: 500px;
+            overflow-y: scroll;
+        }
+        
+        #thought-window {
+            flex: 1;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            height: 500px;
+            overflow-y: auto;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 85%;
+        }
+        
+        .user {
+            background-color: #e1f5fe;
+            margin-left: auto;
+            margin-right: 0;
+        }
+        
+        .assistant {
+            background-color: #f1f1f1;
+            margin-left: 0;
+            margin-right: auto;
+        }
+        
+        .previous-evaluation {
+            margin-top: 20px;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .previous-evaluation h4 {
+            color: #4285f4;
+            margin-top: 0;
+        }
+        
+        .eval-content {
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        #input-area {
+            display: flex;
+            margin-top: 20px;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+            gap: 10px;
+        }
+        
+        #user-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        button {
+            padding: 10px 15px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #2a75f3;
+        }
+        
+        .step-button {
+            background-color: #34a853;
+        }
+        
+        .step-button:hover {
+            background-color: #2d9348;
+        }
+        
+        .step-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        h3 {
+            color: #4285f4;
+            margin-top: 0;
+        }
+        
+        .error-message {
+            color: #ea4335;
+            font-weight: bold;
+        }
+
+        /* Progress indicator styles */
+        .progress-container {
+            margin-bottom: 15px;
+        }
+        
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .progress-step {
+            width: 18%;
+            text-align: center;
+            position: relative;
+        }
+        
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            border-radius: 50%;
+            background-color: #ddd;
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .step-number.active {
+            background-color: #4285f4;
+            color: white;
+        }
+        
+        .step-number.completed {
+            background-color: #34a853;
+            color: white;
+        }
+        
+        .step-text {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .step-text.active {
+            color: #4285f4;
+            font-weight: bold;
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background-color: #ddd;
+            position: relative;
+            margin-top: 15px;
+        }
+        
+        .progress-bar-fill {
+            height: 100%;
+            background-color: #4285f4;
+            position: absolute;
+            left: 0;
+            top: 0;
+            transition: width 0.3s ease;
+        }
+
+        /* Current step indicator */
+        .current-step-indicator {
+            padding: 8px 12px;
+            background-color: #f5f5f5;
+            border-left: 4px solid #4285f4;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+        
+        /* Add loading spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 2s linear infinite;
+            display: none;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center; color: #4285f4;">5-Step Process Coach</h1>
+    
+    <div id="container">
+        <div id="left-panel">
+            <div id="completed-steps">
+                <h3>Completed Steps</h3>
+                <div id="steps-content">
+                    <p>No steps completed yet. Let's get started!</p>
+                    <!-- Add this button just before the closing </div> in the "completed-steps" section -->
+                    <button id="generate-email" onclick="generateEmailSummary()" style="display: none; background-color: #fbbc04; margin-top: 10px;">
+                        Generate Email Summary
+                    </button>
+                </div>
+            </div>
+            <div id="chat-history"></div>
+        </div>
+        <div id="thought-window">
+            <h3>Evaluations</h3>
+            <div id="evaluation-content">Awaiting response...</div>
+            <div id="previous-evaluations"></div>
+        </div>
+    </div>
+    
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
+        <div class="loader" id="loader"></div>
+        <button id="send-button" onclick="sendMessage()">Send</button>
+        <button id="reset-button" onclick="resetConversation()">Reset Conversation</button>
+    </div>
+
+    <!-- Add this modal for the email summary -->
+    <div id="email-modal" style="display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+        <div style="background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 800px;">
+            <span id="close-modal" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+            <h3>Email Summary</h3>
+            <div id="email-content" style="white-space: pre-wrap; margin: 20px 0; max-height: 400px; overflow-y: auto; padding: 10px; border: 1px solid #ddd;"></div>
+            <button onclick="copyEmailToClipboard()" style="background-color: #4285f4;">Copy to Clipboard</button>
+        </div>
+    </div>
+
+    <script>
+        let conversationHistory = [];
+        let isProcessing = false;
+
+        // Add event listener for Enter key
+        document.getElementById('user-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !isProcessing) {
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const userInput = document.getElementById('user-input').value;
+            if (!userInput || isProcessing) return;
+            
+            // Show loading state
+            isProcessing = true;
+            document.getElementById('loader').style.display = 'inline-block';
+            document.getElementById('send-button').disabled = true;
+            
+            conversationHistory.push({ role: 'user', content: userInput });
+            updateChatDisplay();
+            document.getElementById('user-input').value = '';
+
+            fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_input: userInput })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                const botResponse = data.main_response;
+                conversationHistory.push({ role: 'assistant', content: botResponse });
+                updateChatDisplay();
+
+                // Update completed steps
+                const completedSteps = data.completed_steps;
+                const completedStepsDiv = document.getElementById('steps-content');
+                
+                if (completedSteps && completedSteps.length > 0) {
+                    completedStepsDiv.innerHTML = '';
+                    completedSteps.forEach(step => {
+                        const stepDiv = document.createElement('div');
+                        stepDiv.className = 'step-item';
+                        stepDiv.innerHTML = `
+                            <span>Step ${step.step}: ${step.name} ${step.goal ? '- ' + step.goal : ''}</span>
+                            <button class="step-button" onclick="revisitStep(${step.step})">Revisit</button>
+                        `;
+                        completedStepsDiv.appendChild(stepDiv);
+                    });
+                    
+                    // Show email button when steps are completed
+                    const emailButton = document.getElementById('generate-email');
+                    if (emailButton) emailButton.style.display = 'block';
+                }
+
+                // Update current evaluation
+                const currentEvaluation = data.evaluation_summary || 'No evaluation available for this step yet.';
+                document.getElementById('evaluation-content').innerHTML = currentEvaluation;
+                
+                // If we have an evaluation and it's not empty, save it to previous evaluations when moving to next step
+                if (data.evaluation_summary && completedSteps && 
+                    completedSteps.length > 0 && 
+                    completedSteps[completedSteps.length - 1].step === data.current_step) {
+                    const previousEvaluations = document.getElementById('previous-evaluations');
+                    const stepName = completedSteps[completedSteps.length - 1].name;
+                    const evaluationDiv = document.createElement('div');
+                    evaluationDiv.className = 'previous-evaluation';
+                    evaluationDiv.innerHTML = `
+                        <h4>Step ${data.current_step}: ${stepName}</h4>
+                        <div class="eval-content">${data.evaluation_summary}</div>
+                    `;
+                    previousEvaluations.appendChild(evaluationDiv);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('evaluation-content').innerHTML = `
+                    <div class="error-message">
+                        Error communicating with the server. Please try again or reset the conversation.
+                    </div>
+                `;
+            })
+            .finally(() => {
+                // Hide loading state
+                isProcessing = false;
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('send-button').disabled = false;
+            });
+        }
+
+        function updateChatDisplay() {
+            const chatHistory = document.getElementById('chat-history');
+            chatHistory.innerHTML = '';
+            
+            conversationHistory.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${msg.role}`;
+                messageDiv.innerHTML = `<strong>${msg.role === 'user' ? 'You' : 'Coach'}:</strong> ${msg.content}`;
+                chatHistory.appendChild(messageDiv);
+            });
+            
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            
+            // Update email button visibility
+            updateEmailButtonVisibility();
+        }
+
+        function revisitStep(step) {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            document.getElementById('loader').style.display = 'inline-block';
+            
+            fetch('/set_step', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ step: step })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(`Returned to Step ${step}`);
+                } else {
+                    alert('Cannot revisit step: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error communicating with the server');
+            })
+            .finally(() => {
+                isProcessing = false;
+                document.getElementById('loader').style.display = 'none';
+            });
+        }
+
+        function resetConversation() {
+            if (isProcessing) return;
+            
+            if (confirm('Are you sure you want to reset the conversation? This will clear all progress.')) {
+                isProcessing = true;
+                document.getElementById('loader').style.display = 'inline-block';
+                
+                fetch('/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        conversationHistory = [];
+                        updateChatDisplay();
+                        document.getElementById('steps-content').innerHTML = '<p>No steps completed yet. Let\'s get started!</p>';
+                        document.getElementById('evaluation-content').innerHTML = 'Awaiting response...';
+                        document.getElementById('previous-evaluations').innerHTML = '';
+                        const emailButton = document.getElementById('generate-email');
+                        if (emailButton) emailButton.style.display = 'none';
+                        alert('Conversation has been reset');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error communicating with the server');
+                })
+                .finally(() => {
+                    isProcessing = false;
+                    document.getElementById('loader').style.display = 'none';
+                });
+            }
+        }
+
+        function generateEmailSummary() {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            document.getElementById('loader').style.display = 'inline-block';
+            
+            fetch('/get_summary', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('email-content').textContent = data.email_content;
+                document.getElementById('email-modal').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error generating email summary');
+            })
+            .finally(() => {
+                isProcessing = false;
+                document.getElementById('loader').style.display = 'none';
+            });
+        }
+        
+        function copyEmailToClipboard() {
+            const emailContent = document.getElementById('email-content').textContent;
+            navigator.clipboard.writeText(emailContent)
+                .then(() => {
+                    alert('Email copied to clipboard!');
+                })
+                .catch(err => {
+                    console.error('Failed to copy: ', err);
+                    alert('Failed to copy email. Please select the text and copy manually.');
+                });
+        }
+        
+        // Show/hide the email button based on steps completed
+        function updateEmailButtonVisibility() {
+            const completedStepsDiv = document.getElementById('steps-content');
+            const emailButton = document.getElementById('generate-email');
+            
+            // Only show the button if at least one step has been completed and email button exists
+            if (emailButton && completedStepsDiv.textContent.includes('Step')) {
+                emailButton.style.display = 'block';
+            } else if (emailButton) {
+                emailButton.style.display = 'none';
+            }
+        }
+        
+        // Add modal close functionality
+        document.getElementById('close-modal').onclick = function() {
+            document.getElementById('email-modal').style.display = 'none';
+        }
+        
+        // Close modal if user clicks outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('email-modal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
