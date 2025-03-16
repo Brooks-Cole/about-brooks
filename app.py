@@ -146,6 +146,44 @@ def test_route():
     """Super simple test endpoint"""
     return "API is working"
 
+# Endpoint to provide S3 image URLs
+@app.route('/api/s3-images', methods=['GET'])
+def s3_images():
+    """Get S3 image URLs for the frontend"""
+    try:
+        # Get the S3 bucket name
+        s3_bucket = os.environ.get('AWS_S3_BUCKET', 'aboutbrooks')
+        
+        # Don't need AWS credentials to generate URLs for public objects
+        # Generate S3 URLs
+        region = os.environ.get('AWS_REGION', 'us-east-1')
+        base_url = f"https://{s3_bucket}.s3.{region}.amazonaws.com"
+        
+        # URLs for key images
+        images = {
+            "profileImage": f"{base_url}/images/Me%20on%20a%20boat%20in%20Alabama.jpeg",
+            "workshop": f"{base_url}/images/Workshop.jpeg",
+            "fishing": f"{base_url}/images/Sailfish.jpeg",
+            "reading": f"{base_url}/images/Book%20Vase.jpeg",
+            "projects": f"{base_url}/images/Carrier%20Pigeons.jpeg",
+            "bucketInfo": {
+                "name": s3_bucket,
+                "region": region,
+                "baseUrl": base_url
+            }
+        }
+        
+        return jsonify(images)
+    except Exception as e:
+        print(f"Error in s3_images endpoint: {str(e)}")
+        return jsonify({
+            "error": str(e),
+            "bucketInfo": {
+                "name": os.environ.get('AWS_S3_BUCKET', 'aboutbrooks'),
+                "region": os.environ.get('AWS_REGION', 'us-east-1')
+            }
+        }), 500
+
 # Get API key from environment variable
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
 print(f"Checking for API key in environment variables: {'Found' if ANTHROPIC_API_KEY else 'Not found'}")

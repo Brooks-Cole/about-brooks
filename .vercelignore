@@ -1,11 +1,15 @@
-# Exclude large files and development directories
+# Exclude large files and directories
+static/images/
 .venv/
 myenv/
 __pycache__/
 *.pyc
-.vscode/
 .git/
+.vscode/
 flask_session/
-
-# These are already excluded from git, but adding here for clarity
-static/images/
+*.mov
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.gif
