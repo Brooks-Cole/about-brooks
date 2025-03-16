@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Union, Optional
 from utils.personal_profile import PERSONAL_PROFILE
 from prompts.system_prompt import get_system_prompt
 from utils.investment_philosophy import INVESTMENT_PHILOSOPHY
+from utils.s3_utils import s3_image_url
 
 # Environment variables for configuration
 env_loaded = False
@@ -229,7 +230,17 @@ def chat():
                     photo['title']}: {
                     photo['description']}. Filename: {
                     photo['filename']}\n"
-            photo_context += "\nIf relevant, include a photo link by saying exactly: 'You can see a photo of it here: /static/images/{filename}' where {filename} is the EXACT filename from above, already URL encoded."
+            # Get S3 bucket name from environment variable
+            s3_bucket = os.environ.get('AWS_S3_BUCKET')
+            if s3_bucket:
+                photo_context += f"\nIf relevant, include a photo link by saying exactly: 'You can see a photo of it here: {{s3_url}}' where {{s3_url}} is the full S3 URL I'll provide for each image."
+                # Generate S3 URLs for each photo
+                for photo in relevant_photos:
+                    filename = photo['filename']
+                    s3_url = s3_image_url(s3_bucket, f"images/{filename}")
+                    photo_context += f"\nFor image '{photo['title']}', use: {s3_url}"
+            else:
+                photo_context += "\nIf relevant, include a photo link by saying exactly: 'You can see a photo of it here: /static/images/{filename}' where {filename} is the EXACT filename from above, already URL encoded."
 
         # Normal flow for all other messages
         # Prepare messages for Anthropic API with proper typing
