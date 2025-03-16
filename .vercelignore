@@ -1,0 +1,11 @@
+# Exclude large files and development directories
+.venv/
+myenv/
+__pycache__/
+*.pyc
+.vscode/
+.git/
+flask_session/
+
+# These are already excluded from git, but adding here for clarity
+static/images/

@@ -133,18 +133,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Try to load hero banner image as background
+    // Apply a solid color background for the hero banner for now
     try {
         const heroBanner = document.querySelector('.hero-banner');
         if (heroBanner) {
-            const img = new Image();
-            img.onload = function() {
-                heroBanner.style.backgroundImage = 'linear-gradient(rgba(52, 152, 219, 0.8), rgba(52, 152, 219, 0.8)), url("/static/images/Back%20Creek%20Sunset.jpeg")';
-            };
-            img.src = '/static/images/Back%20Creek%20Sunset.jpeg';
+            // Use a gradient background instead of an image
+            heroBanner.style.backgroundImage = 'linear-gradient(to right, rgba(52, 152, 219, 0.8), rgba(41, 128, 185, 0.9))';
         }
     } catch (e) {
-        console.log('No hero banner image found, using solid color');
+        console.log('Error setting hero banner style', e);
     }
     
     // Helper Functions
