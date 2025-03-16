@@ -123,7 +123,7 @@ CORS(app, resources={
     }
 })
 
-# Add debug route to check if backend is responding
+# Add debug routes to check if backend is responding
 @app.route('/api/debug', methods=['GET'])
 def debug_route():
     """Simple endpoint to verify the API is working"""
@@ -139,6 +139,12 @@ def debug_route():
             "AWS_S3_BUCKET": bool(os.environ.get('AWS_S3_BUCKET'))
         }
     })
+
+# Add a simpler test endpoint
+@app.route('/test', methods=['GET'])
+def test_route():
+    """Super simple test endpoint"""
+    return "API is working"
 
 # Get API key from environment variable
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')

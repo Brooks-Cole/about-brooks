@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Chat with Brooks</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -12,8 +12,10 @@
         <header>
             <div class="profile">
                 <div class="profile-picture">
-                    <!-- Use a placeholder profile image until S3 is set up -->
-                    <img src="https://via.placeholder.com/150" alt="Brooks Cole" id="profile-image">
+                    <!-- Use a simple profile image until S3 is set up -->
+                    <div style="width: 150px; height: 150px; background-color: #3498db; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 42px;" id="profile-image-placeholder">
+                        BC
+                    </div>
                 </div>
                 <div class="profile-info">
                     <h1><a href="/" class="name-link">Brooks Cole</a></h1>
@@ -40,22 +42,30 @@
                 <h3>Things I'm Into</h3>
                 <div class="highlight-grid">
                     <div class="highlight-item">
-                        <img src="https://via.placeholder.com/150" alt="Workshop">
+                        <div style="width: 150px; height: 150px; background-color: #2ecc71; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
+                            🔨
+                        </div>
                         <h4>Maker Projects</h4>
                         <p>From woodworking to creative builds</p>
                     </div>
                     <div class="highlight-item">
-                        <img src="https://via.placeholder.com/150" alt="Fishing">
+                        <div style="width: 150px; height: 150px; background-color: #3498db; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
+                            🎣
+                        </div>
                         <h4>Fishing & Outdoors</h4>
                         <p>Adventures on the water and beyond</p>
                     </div>
                     <div class="highlight-item">
-                        <img src="https://via.placeholder.com/150" alt="Book Vase">
+                        <div style="width: 150px; height: 150px; background-color: #9b59b6; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
+                            📚
+                        </div>
                         <h4>Creative Reading</h4>
                         <p>Finding new uses for knowledge</p>
                     </div>
                     <div class="highlight-item">
-                        <img src="https://via.placeholder.com/150" alt="Tech Projects">
+                        <div style="width: 150px; height: 150px; background-color: #e74c3c; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
+                            🧪
+                        </div>
                         <h4>Unique Projects</h4>
                         <p>From carrier pigeons to tech experiments</p>
                     </div>
@@ -113,6 +123,6 @@
         </footer>
     </div>
     
-    <script src="/static/script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>

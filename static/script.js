@@ -82,25 +82,56 @@ document.addEventListener('DOMContentLoaded', function() {
         if (backendChecked) return Promise.resolve(backendAvailable);
         
         console.log("Checking backend status...");
-        return fetch('/api/debug')
+        
+        // First try the simple test endpoint
+        return fetch('/test')
             .then(response => {
-                backendChecked = true;
                 if (response.ok) {
-                    console.log("Backend API is responding!");
+                    console.log("Basic API test endpoint is responding!");
+                    backendChecked = true;
                     backendAvailable = true;
-                    return response.json();
+                    return true;
                 } else {
-                    console.error("Backend API is not responding:", response.status);
-                    backendAvailable = false;
-                    throw new Error(`API returned status ${response.status}`);
+                    console.log("Basic API test failed, trying debug endpoint...");
+                    // Fall back to the debug endpoint
+                    return fetch('/api/debug')
+                        .then(response => {
+                            backendChecked = true;
+                            if (response.ok) {
+                                console.log("Debug API is responding!");
+                                backendAvailable = true;
+                                return response.json();
+                            } else {
+                                console.error("Debug API is not responding:", response.status);
+                                backendAvailable = false;
+                                throw new Error(`API returned status ${response.status}`);
+                            }
+                        })
+                        .then(data => {
+                            if (data) console.log("API Debug endpoint response:", data);
+                            return true;
+                        });
                 }
-            })
-            .then(data => {
-                console.log("API Debug endpoint response:", data);
-                return true;
             })
             .catch(error => {
                 console.error("Error checking backend:", error);
+                backendChecked = true;
+                backendAvailable = false;
+                
+                // Add a message to the UI to help with debugging
+                const debugInfo = document.createElement('div');
+                debugInfo.style.position = 'fixed';
+                debugInfo.style.bottom = '10px';
+                debugInfo.style.right = '10px';
+                debugInfo.style.background = 'rgba(255,0,0,0.7)';
+                debugInfo.style.color = 'white';
+                debugInfo.style.padding = '10px';
+                debugInfo.style.borderRadius = '5px';
+                debugInfo.style.zIndex = '1000';
+                debugInfo.style.maxWidth = '300px';
+                debugInfo.innerHTML = `API Error: ${error.message}<br>Please check browser console for details.`;
+                document.body.appendChild(debugInfo);
+                
                 return false;
             });
     }
