@@ -42,3 +42,6 @@ flask_session/
 .DS_Store
 Thumbs.db
 .vercel
+
+# Large image files
+static/images/
