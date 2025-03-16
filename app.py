@@ -1092,6 +1092,15 @@ def serve_frontend():
         # Return a basic HTML response in case the static file can't be found
         return '<html><body><h1>Brooks\' Personal AI</h1><p>There was an error loading the application. Please check the server logs.</p></body></html>'
 
+# Add explicit routes for static assets
+@app.route('/styles.css')
+def serve_css():
+    return send_from_directory('static', 'styles.css')
+
+@app.route('/script.js')
+def serve_js():
+    return send_from_directory('static', 'script.js')
+
 
 # For local development
 # Using port 5001 to avoid conflict with AirPlay Receiver

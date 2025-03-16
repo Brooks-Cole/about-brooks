@@ -5,7 +5,8 @@
   ],
   "routes": [
     { "src": "/static/(.*)", "dest": "/static/$1" },
-    { "src": "/(styles\\.css|script\\.js)", "dest": "/static/$1" },
+    { "src": "/(styles\\.css)", "dest": "/static/styles.css" },
+    { "src": "/(script\\.js)", "dest": "/static/script.js" },
     { "src": "/(.*)", "dest": "/app.py" }
   ],
   "env": {
