@@ -1,12 +1,13 @@
 {
   "version": 2,
   "builds": [
-    { "src": "wsgi.py", "use": "@vercel/python" }
+    { "src": "app.py", "use": "@vercel/python" }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "/wsgi.py" }
+    { "src": "/static/(.*)", "dest": "/static/$1" },
+    { "src": "/(.*)", "dest": "/app.py" }
   ],
   "env": {
-    "PYTHONUNBUFFERED": "1"
+    "ANTHROPIC_API_KEY": "@anthropic_api_key"
   }
 }

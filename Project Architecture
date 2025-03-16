@@ -1,0 +1,25 @@
+graph TD
+    subgraph "Frontend"
+        A[index.html] --> B[styles.css]
+        A --> C[script.js]
+    end
+    
+    subgraph "Backend"
+        D[app.py] --> E[personal_profile.py]
+        D --> F[system_prompt.py]
+        D --> G[Anthropic API]
+    end
+    
+    C -- "HTTP Requests" --> D
+    D -- "Response" --> C
+    
+    subgraph "Deployment"
+        H[Vercel] --> D
+    end
+    
+    subgraph "User Flow"
+        I[User visits site] --> A
+        I -- "Asks questions" --> C
+        G -- "AI response" --> C
+        C -- "Displays response" --> I
+    end
