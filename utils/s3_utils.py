@@ -49,7 +49,7 @@ def upload_file_to_s3(file_path, bucket_name, object_name=None, make_public=Fals
         file_path (str): Path to the file to upload
         bucket_name (str): Bucket to upload to
         object_name (str): S3 object name. If not specified, file_path's basename is used
-        make_public (bool): Whether to make the uploaded file publicly accessible
+        make_public (bool): Whether to make the uploaded file publicly accessible (ignored for ACL-disabled buckets)
         
     Returns:
         bool: True if file was uploaded, False otherwise
@@ -64,9 +64,10 @@ def upload_file_to_s3(file_path, bucket_name, object_name=None, make_public=Fals
         return False
     
     try:
-        extra_args = {}
-        if make_public:
-            extra_args['ACL'] = 'public-read'
+        # For ACL-disabled buckets, don't use ACL parameter
+        extra_args = {
+            'ContentType': get_content_type(file_path)
+        }
             
         # Upload the file
         s3_client.upload_file(
@@ -89,6 +90,32 @@ def upload_file_to_s3(file_path, bucket_name, object_name=None, make_public=Fals
     except Exception as e:
         logger.error(f"Unexpected error uploading to S3: {str(e)}")
         return False
+        
+def get_content_type(file_path):
+    """
+    Get the content type for a file based on its extension
+    
+    Args:
+        file_path (str): Path to the file
+        
+    Returns:
+        str: Content type for the file
+    """
+    extension = os.path.splitext(file_path.lower())[1]
+    if extension == '.jpg' or extension == '.jpeg':
+        return 'image/jpeg'
+    elif extension == '.png':
+        return 'image/png'
+    elif extension == '.gif':
+        return 'image/gif'
+    elif extension == '.mov':
+        return 'video/quicktime'
+    elif extension == '.mp4':
+        return 'video/mp4'
+    elif extension == '.pdf':
+        return 'application/pdf'
+    else:
+        return 'application/octet-stream'
 
 def list_bucket_contents(bucket_name, prefix=""):
     """
@@ -129,7 +156,7 @@ def upload_directory_to_s3(directory_path, bucket_name, prefix="", make_public=F
         directory_path (str): Path to the directory to upload
         bucket_name (str): Name of the S3 bucket
         prefix (str): Prefix to add to object keys
-        make_public (bool): Whether to make uploaded files publicly accessible
+        make_public (bool): Whether to make uploaded files publicly accessible (ignored for ACL-disabled buckets)
         
     Returns:
         dict: Dictionary with 'success' and 'failed' lists

@@ -22,6 +22,7 @@ if missing_vars:
 
 # Get bucket name
 bucket_name = os.environ['AWS_S3_BUCKET']
+print(f"Using S3 bucket: {bucket_name}")
 
 # Directory to upload
 image_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'images')
@@ -36,12 +37,12 @@ print("This may take a while for many or large images...")
 # Time the upload
 start_time = time.time()
 
-# Upload all images to S3 with public-read access
+# Upload all images to S3 (ACL disabled buckets don't support public-read)
 results = upload_directory_to_s3(
     image_directory, 
     bucket_name, 
     prefix="images", 
-    make_public=True
+    make_public=False
 )
 
 end_time = time.time()
