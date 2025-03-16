@@ -1,37 +1,11 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Fix for mobile viewport height issues with browsers
+    console.log("Document loaded - script running!");
+    
+    // Simplified viewport height function
     function setVh() {
         let vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
-        
-        // Additional fix for chat container height
-        const chatContainer = document.querySelector('.chat-container');
-        if (chatContainer) {
-            // Make sure the chat container is properly sized based on available space
-            const windowHeight = window.innerHeight;
-            const headerHeight = document.querySelector('header')?.offsetHeight || 0;
-            const footerHeight = document.querySelector('footer')?.offsetHeight || 0;
-            const welcomeMessageHeight = document.querySelector('.welcome-message')?.offsetHeight || 0;
-            const mainPadding = 40; // 20px top + 20px bottom
-            const quickLinksHeight = document.querySelector('.quick-links')?.offsetHeight || 0;
-            const inputAreaHeight = document.querySelector('.input-area')?.offsetHeight || 0;
-            
-            // Set a reasonable height that fits the viewport
-            // Subtract the height of the quick links to ensure they're always visible
-            const availableHeight = windowHeight - headerHeight - footerHeight - mainPadding - welcomeMessageHeight;
-            
-            // Set height for the container
-            chatContainer.style.maxHeight = `${availableHeight}px`;
-            
-            // Adjust chat messages area to make room for input and quick links
-            const chatMessages = document.getElementById('chat-messages');
-            if (chatMessages) {
-                chatMessages.style.maxHeight = `${availableHeight - inputAreaHeight - quickLinksHeight}px`;
-                chatMessages.style.height = `${availableHeight - inputAreaHeight - quickLinksHeight}px`;
-            }
-            
-            console.log(`Window height: ${windowHeight}, Available: ${availableHeight}, Quick links: ${quickLinksHeight}, Input: ${inputAreaHeight}`);
-        }
+        console.log("Viewport height set");
     }
     
     // Set the value initially and on resize/orientation change
@@ -77,6 +51,40 @@ document.addEventListener('DOMContentLoaded', function() {
     // First check if backend is responding
     let backendChecked = false;
     let backendAvailable = false;
+    
+    // Try to load profile image from S3
+    function tryLoadS3Images() {
+        console.log("Checking for S3 images...");
+        fetch('/api/s3-images')
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error("S3 images not available");
+                }
+            })
+            .then(data => {
+                if (data && data.profileImage) {
+                    // Set profile image
+                    const profileImg = document.getElementById('profile-image');
+                    const placeholder = document.getElementById('profile-image-placeholder');
+                    
+                    profileImg.src = data.profileImage;
+                    profileImg.onload = function() {
+                        placeholder.style.display = 'none';
+                        profileImg.style.display = 'block';
+                    };
+                    
+                    console.log("S3 profile image loaded");
+                }
+            })
+            .catch(error => {
+                console.log("S3 images not available:", error.message);
+            });
+    }
+    
+    // Try to load S3 images on page load
+    setTimeout(tryLoadS3Images, 1000);
     
     function checkBackendStatus() {
         if (backendChecked) return Promise.resolve(backendAvailable);

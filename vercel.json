@@ -1,15 +1,12 @@
 {
   "version": 2,
   "builds": [
-    { "src": "app.py", "use": "@vercel/python" }
+    { "src": "static/**", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/static/(.*)", "dest": "/static/$1" },
-    { "src": "/(styles\\.css)", "dest": "/static/styles.css" },
-    { "src": "/(script\\.js)", "dest": "/static/script.js" },
-    { "src": "/(.*)", "dest": "/app.py" }
-  ],
-  "env": {
-    "AWS_REGION": "us-east-1"
-  }
+    { "src": "/", "dest": "/static/index.html" },
+    { "src": "/styles.css", "dest": "/static/styles.css" },
+    { "src": "/script.js", "dest": "/static/script.js" },
+    { "src": "/static/(.*)", "dest": "/static/$1" }
+  ]
 }
