@@ -74,37 +74,106 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // First check if backend is responding
+    let backendChecked = false;
+    let backendAvailable = false;
+    
+    function checkBackendStatus() {
+        if (backendChecked) return Promise.resolve(backendAvailable);
+        
+        console.log("Checking backend status...");
+        return fetch('/api/debug')
+            .then(response => {
+                backendChecked = true;
+                if (response.ok) {
+                    console.log("Backend API is responding!");
+                    backendAvailable = true;
+                    return response.json();
+                } else {
+                    console.error("Backend API is not responding:", response.status);
+                    backendAvailable = false;
+                    throw new Error(`API returned status ${response.status}`);
+                }
+            })
+            .then(data => {
+                console.log("API Debug endpoint response:", data);
+                return true;
+            })
+            .catch(error => {
+                console.error("Error checking backend:", error);
+                return false;
+            });
+    }
+    
     // Landing page transitions
     startChatButton.addEventListener('click', function() {
-        landingSection.style.display = 'none';
-        chatSection.style.display = 'block';
-        resetButton.style.display = 'block';
-        backToLandingButton.style.display = 'block';
-        
-        // Initialize chat with a greeting
-        if (chatMessages.children.length === 0) {
-            addTypingIndicator();
+        // First check if backend is available
+        checkBackendStatus().then(isAvailable => {
+            landingSection.style.display = 'none';
+            chatSection.style.display = 'block';
+            resetButton.style.display = 'block';
+            backToLandingButton.style.display = 'block';
             
-            window.setTimeout(() => {
-                removeTypingIndicator();
+            // Initialize chat with a greeting
+            if (chatMessages.children.length === 0) {
+                addTypingIndicator();
                 
-                fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ user_input: 'hello' })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    addMessage(data.response, 'assistant');
-                })
-                .catch(error => {
-                    console.error('Error starting conversation:', error);
-                    addMessage('Hi there! 👋 I\'m Brooks\' personal AI assistant. Ask me anything about him, his interests, projects, or background!', 'assistant');
-                });
-            }, 1500);
-        }
+                if (!isAvailable) {
+                    // If backend isn't responding, show a fallback message
+                    setTimeout(() => {
+                        removeTypingIndicator();
+                        addMessage('Sorry, the AI service is currently unavailable. Please try again later.', 'assistant');
+                    }, 1000);
+                    return;
+                }
+                
+                window.setTimeout(() => {
+                    removeTypingIndicator();
+                    
+                    // Try simplified hello message first
+                    fetch('/simple-chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ user_input: 'hello' })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`API returned status ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data && data.response) {
+                            addMessage(data.response, 'assistant');
+                        } else {
+                            throw new Error('Invalid response format');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error starting conversation:', error);
+                        
+                        // Fallback to regular chat endpoint
+                        fetch('/chat', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ user_input: 'hello' })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            addMessage(data.response, 'assistant');
+                        })
+                        .catch(err => {
+                            console.error('Both endpoints failed:', err);
+                            addMessage('Hi there! 👋 I\'m Brooks\' personal AI assistant. Ask me anything about him, his interests, projects, or background!', 'assistant');
+                        });
+                    });
+                }, 1500);
+            }
+        });
     });
     
     backToLandingButton.addEventListener('click', function() {

@@ -113,7 +113,32 @@ def configure_sessions(app):
 app = Flask(__name__)
 app = configure_sessions(app)  # Configure sessions
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable caching for static files
-CORS(app)
+
+# Configure CORS with more specific settings
+CORS(app, resources={
+    r"/*": {
+        "origins": ["*"],  # Allow all origins for now
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
+
+# Add debug route to check if backend is responding
+@app.route('/api/debug', methods=['GET'])
+def debug_route():
+    """Simple endpoint to verify the API is working"""
+    return jsonify({
+        "status": "ok",
+        "message": "Backend API is responding",
+        "timestamp": datetime.now().isoformat(),
+        "env_vars_present": {
+            "ANTHROPIC_API_KEY": bool(os.environ.get('ANTHROPIC_API_KEY')),
+            "SECRET_KEY": bool(os.environ.get('SECRET_KEY')),
+            "AWS_ACCESS_KEY_ID": bool(os.environ.get('AWS_ACCESS_KEY_ID')),
+            "AWS_SECRET_ACCESS_KEY": bool(os.environ.get('AWS_SECRET_ACCESS_KEY')),
+            "AWS_S3_BUCKET": bool(os.environ.get('AWS_S3_BUCKET'))
+        }
+    })
 
 # Get API key from environment variable
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
@@ -232,7 +257,22 @@ def chat():
                     photo['filename']}\n"
             # Get S3 bucket name from environment variable
             s3_bucket = os.environ.get('AWS_S3_BUCKET')
-            if s3_bucket:
+            s3_enabled = False
+            
+            # Check if S3 is properly configured
+            try:
+                if s3_bucket:
+                    from utils.s3_utils import get_s3_client
+                    s3_client = get_s3_client()
+                    if s3_client:
+                        # Test connection
+                        s3_client.list_objects_v2(Bucket=s3_bucket, MaxKeys=1)
+                        s3_enabled = True
+            except Exception as e:
+                print(f"S3 connection test failed: {str(e)}")
+                s3_enabled = False
+                
+            if s3_enabled:
                 photo_context += f"\nIf relevant, include a photo link by saying exactly: 'You can see a photo of it here: {{s3_url}}' where {{s3_url}} is the full S3 URL I'll provide for each image."
                 # Generate S3 URLs for each photo
                 for photo in relevant_photos:
