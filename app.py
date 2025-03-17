@@ -503,6 +503,14 @@ def chat():
                                 if spotify_data:
                                     track = spotify_data[0]['track']
                                     social_data += f"  - Recently played: {track.get('name', 'unknown')} by {track.get('artists', [{}])[0].get('name', 'unknown')}\n"
+                        
+                        elif platform == 'reddit':
+                            # Get Reddit data if connected
+                            resp = client.get('https://oauth.reddit.com/api/v1/me', token=token, headers={'User-Agent': 'BrooksChatbot/1.0 (by /u/yourusername)'})
+                            if resp.status_code == 200:
+                                user_data = resp.json()
+                                social_data += f"  - Reddit Username: u/{user_data.get('name', 'unknown')}\n"
+                                social_data += f"  - Karma: {user_data.get('total_karma', 0)}\n"
                     
                     except Exception as e:
                         print(f"Error fetching social data for {platform}: {str(e)}")
