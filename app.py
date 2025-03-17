@@ -181,6 +181,13 @@ PLATFORMS = {
         'scopes': ['user.info.basic'],
         'pkce': True,
         'token_endpoint_auth_method': 'client_secret_post'
+    },
+    'reddit': {
+        'client_id': os.environ.get('REDDIT_CLIENT_ID', 'your_reddit_client_id'),
+        'client_secret': os.environ.get('REDDIT_CLIENT_SECRET', 'your_reddit_client_secret'),
+        'authorize_url': 'https://www.reddit.com/api/v1/authorize',
+        'token_url': 'https://www.reddit.com/api/v1/access_token',
+        'scopes': ['identity', 'read']
     }
 }
 
