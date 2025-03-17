@@ -117,7 +117,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(staticNotice);
         
         return Promise.resolve(false);
-    };
     }
     
     // Landing page transitions
