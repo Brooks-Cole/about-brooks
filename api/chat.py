@@ -21,10 +21,6 @@ from utils.personal_profile import PERSONAL_PROFILE
 from utils.investment_philosophy import INVESTMENT_PHILOSOPHY
 
 # Setup logging
-LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs')
-os.makedirs(LOG_DIR, exist_ok=True)
-
-# Configure main logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("chat_api")
 
@@ -32,17 +28,37 @@ logger = logging.getLogger("chat_api")
 conversation_logger = logging.getLogger("conversations")
 conversation_logger.setLevel(logging.INFO)
 
-# Create a file handler that logs to a different file each day
-log_file = os.path.join(LOG_DIR, f"conversations_{datetime.now().strftime('%Y-%m-%d')}.log")
-file_handler = logging.FileHandler(log_file)
-file_handler.setLevel(logging.INFO)
+# Check if we're in a Vercel environment or similar serverless setup
+IS_SERVERLESS = os.environ.get('VERCEL') == '1' or os.environ.get('SERVERLESS') == '1'
 
 # Create a formatter for the logs
 formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
-file_handler.setFormatter(formatter)
 
-# Add the handlers to the logger
-conversation_logger.addHandler(file_handler)
+# If we're not in a serverless environment, set up file logging
+if not IS_SERVERLESS:
+    try:
+        # Set up directory for logs
+        LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs')
+        os.makedirs(LOG_DIR, exist_ok=True)
+        
+        # Create a file handler that logs to a different file each day
+        log_file = os.path.join(LOG_DIR, f"conversations_{datetime.now().strftime('%Y-%m-%d')}.log")
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        
+        # Add the handler to the logger
+        conversation_logger.addHandler(file_handler)
+        logger.info("File logging enabled")
+    except Exception as e:
+        logger.warning(f"Could not set up file logging: {str(e)}")
+
+# Always add console handler as fallback for serverless environments
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+conversation_logger.addHandler(console_handler)
+logger.info("Console logging enabled")
 
 # Full conversation tracking to maintain entire chat history
 full_conversations = {}
@@ -284,21 +300,34 @@ class Handler(BaseHTTPRequestHandler):
             full_conversations[session_id].append(assistant_response)
             
             # Log the conversation exchange
-            user_agent = self.headers.get('User-Agent', 'unknown')
-            ip_address = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
-            
-            # Log in a structured format that's easy to parse later
-            log_entry = json.dumps({
-                'timestamp': datetime.now().isoformat(),
-                'session_id': session_id[:8] + '...',  # Truncate for privacy
-                'user_agent': user_agent[:50] + '...' if len(user_agent) > 50 else user_agent,
-                'ip_address': ip_address,
-                'user_message': user_input,
-                'ai_response': assistant_response
-            })
-            
-            # Write to log file
-            conversation_logger.info(log_entry)
+            try:
+                user_agent = self.headers.get('User-Agent', 'unknown')
+                # Get IP address safely (may not be available in all environments)
+                ip_address = 'unknown'
+                if hasattr(self, 'client_address') and self.client_address:
+                    ip_address = self.client_address[0]
+                elif 'X-Forwarded-For' in self.headers:
+                    ip_address = self.headers.get('X-Forwarded-For')
+                
+                # Prepare log data
+                log_data = {
+                    'timestamp': datetime.now().isoformat(),
+                    'session_id': session_id[:8] + '...' if len(session_id) > 8 else session_id,  # Truncate for privacy
+                    'user_agent': user_agent[:50] + '...' if len(user_agent) > 50 else user_agent,
+                    'ip_address': ip_address,
+                    'user_message': user_input,
+                    'ai_response': assistant_response
+                }
+                
+                # Log in a structured format that's easy to parse later
+                log_entry = json.dumps(log_data)
+                
+                # Write to log
+                conversation_logger.info(log_entry)
+            except Exception as log_error:
+                # If logging fails, don't break the main functionality
+                logger.error(f"Failed to log conversation: {str(log_error)}")
+                # Continue processing without breaking user experience
             
             # Check if this might be the end of a conversation
             should_send_email = is_conversation_ending(user_input)
