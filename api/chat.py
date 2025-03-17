@@ -11,6 +11,7 @@ from urllib.parse import parse_qs
 from datetime import datetime
 import time
 import traceback
+import html
 
 # Import your system prompt
 import sys
@@ -43,9 +44,6 @@ file_handler.setFormatter(formatter)
 # Add the handlers to the logger
 conversation_logger.addHandler(file_handler)
 
-# Conversation tracking for email reports
-conversation_history = {}
-
 # Full conversation tracking to maintain entire chat history
 full_conversations = {}
 
@@ -66,7 +64,8 @@ def cleanup_inactive_sessions():
                 try:
                     send_conversation_email(
                         conversation_id, 
-                        full_conversations[conversation_id]
+                        full_conversations[conversation_id],
+                        subject=f"Timed Out AI Conversation - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
                     )
                 except Exception as e:
                     print(f"Error sending timeout email: {str(e)}")
@@ -76,8 +75,6 @@ def cleanup_inactive_sessions():
     
     # Clean up expired sessions
     for conversation_id in sessions_to_remove:
-        if conversation_id in conversation_history:
-            del conversation_history[conversation_id]
         if conversation_id in full_conversations:
             del full_conversations[conversation_id]
         if conversation_id in last_activity:
@@ -85,8 +82,8 @@ def cleanup_inactive_sessions():
     
     return len(sessions_to_remove)
 
-# Email configuration
-def send_conversation_email(conversation_id, messages, email_to=PERSONAL_PROFILE.get("email")):
+# Improved email formatting with better styling
+def send_conversation_email(conversation_id, messages, email_to=PERSONAL_PROFILE.get("email"), subject=None):
     try:
         email_from = os.environ.get('EMAIL_SENDER')
         email_password = os.environ.get('EMAIL_PASSWORD')
@@ -94,34 +91,67 @@ def send_conversation_email(conversation_id, messages, email_to=PERSONAL_PROFILE
         if not all([email_from, email_password, email_to]):
             print("Email configuration incomplete. Not sending email.")
             return False
+        
+        # Format start and end times
+        start_time = datetime.fromtimestamp(last_activity[conversation_id] - (len(messages) // 2 * 60))  # Rough estimate
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds() // 60  # Duration in minutes
             
         # Create message
         msg = MIMEMultipart()
         msg['From'] = email_from
         msg['To'] = email_to
-        msg['Subject'] = f"Complete AI Conversation - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        msg['Subject'] = subject or f"Complete AI Conversation - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         
-        # Build HTML body
+        # Build HTML body with improved styling
         conversation_html = ""
+        
         for i, message in enumerate(messages):
-            role = "User" if i % 2 == 0 else "AI"
+            role_is_user = i % 2 == 0
+            role = "User" if role_is_user else "AI"
+            
+            # Style the message differently based on role
+            style = "background-color: #f0f0f0; border-radius: 10px; padding: 15px; margin-bottom: 10px;"
+            if not role_is_user:
+                style = "background-color: #e1f5fe; border-radius: 10px; padding: 15px; margin-bottom: 10px;"
+                
+            # Convert plain text to HTML with line breaks preserved
+            formatted_message = html.escape(message).replace('\n', '<br>')
+            
             conversation_html += f"""
-            <div style="margin-bottom: 15px;">
-                <h3>{role}:</h3>
-                <p style="margin-left: 20px;">{message}</p>
-                {'' if i == len(messages)-1 else '<hr style="border-top: 1px solid #ddd;">'}
+            <div style="{style}">
+                <p style="margin: 0; font-weight: bold; margin-bottom: 5px;">{role}:</p>
+                <div style="margin-left: 10px;">
+                    {formatted_message}
+                </div>
             </div>
             """
         
-        # Email body
+        # Email body with more comprehensive metadata
         body = f"""
         <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
+                .container {{ max-width: 800px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }}
+                .conversation {{ border: 1px solid #ddd; padding: 20px; border-radius: 5px; }}
+            </style>
+        </head>
         <body>
-            <h2>Complete Conversation with Your AI</h2>
-            <p><strong>Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-            <p><strong>Conversation ID:</strong> {conversation_id[:8]}...</p>
-            <div style="margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px;">
-                {conversation_html}
+            <div class="container">
+                <div class="header">
+                    <h2>Complete AI Conversation</h2>
+                    <p><strong>Session ID:</strong> {conversation_id[:8]}...</p>
+                    <p><strong>Started:</strong> {start_time.strftime('%Y-%m-%d %H:%M:%S')}</p>
+                    <p><strong>Ended:</strong> {end_time.strftime('%Y-%m-%d %H:%M:%S')}</p>
+                    <p><strong>Duration:</strong> Approximately {duration} minutes</p>
+                    <p><strong>Messages:</strong> {len(messages)}</p>
+                </div>
+                
+                <div class="conversation">
+                    {conversation_html}
+                </div>
             </div>
         </body>
         </html>
@@ -137,10 +167,36 @@ def send_conversation_email(conversation_id, messages, email_to=PERSONAL_PROFILE
         server.sendmail(email_from, email_to, text)
         server.quit()
         
+        print(f"Email sent successfully for conversation {conversation_id[:8]}...")
         return True
     except Exception as e:
         print(f"Failed to send email: {str(e)}")
+        traceback.print_exc()
         return False
+
+# Enhanced trigger detection for conversation end
+def is_conversation_ending(message):
+    """
+    Determine if the message signals the likely end of a conversation.
+    Returns True if the message contains end indicators.
+    """
+    # Keywords that might indicate end of conversation
+    end_indicators = [
+        "goodbye", "bye", "thank", "thanks", "that's all", "that is all", 
+        "have a good", "talk later", "talk to you later", "ttyl", "appreciate", 
+        "until next time", "see you", "adios", "au revoir",
+        "take care", "got what i needed", "all set", "good night", "good day"
+    ]
+    
+    message_lower = message.lower()
+    
+    # Simple matching
+    direct_match = any(indicator in message_lower for indicator in end_indicators)
+    
+    # Length-based heuristic (very short messages + contains thanks can be goodbyes)
+    short_thank = len(message_lower.split()) <= 5 and ("thank" in message_lower or "thanks" in message_lower)
+    
+    return direct_match or short_thank
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -213,12 +269,9 @@ class Handler(BaseHTTPRequestHandler):
             # If no cookie found, generate a new session ID from user agent + timestamp
             if not session_id:
                 user_agent = self.headers.get('User-Agent', 'unknown')
-                session_id = user_agent + str(datetime.now().timestamp())
+                timestamp = datetime.now().timestamp()
+                session_id = f"{user_agent[:20]}-{timestamp}"
             
-            # Update conversation history for the current exchange
-            if session_id not in conversation_history:
-                conversation_history[session_id] = []
-                
             # Initialize or update full conversation tracking
             if session_id not in full_conversations:
                 full_conversations[session_id] = []
@@ -227,10 +280,6 @@ class Handler(BaseHTTPRequestHandler):
             last_activity[session_id] = datetime.now().timestamp()
             
             # Add the latest messages to both history trackers
-            conversation_history[session_id].append(user_input)
-            conversation_history[session_id].append(assistant_response)
-            
-            # Keep full conversation history
             full_conversations[session_id].append(user_input)
             full_conversations[session_id].append(assistant_response)
             
@@ -251,14 +300,8 @@ class Handler(BaseHTTPRequestHandler):
             # Write to log file
             conversation_logger.info(log_entry)
             
-            # Check if this might be the end of a conversation (simple heuristic)
-            # Keywords that might indicate end of conversation or natural stopping point
-            end_indicators = [
-                "goodbye", "bye", "thank", "thanks", "that's all", "that is all", 
-                "have a good", "talk later", "talk to you later", "ttyl"
-            ]
-            
-            should_send_email = any(indicator in user_input.lower() for indicator in end_indicators)
+            # Check if this might be the end of a conversation
+            should_send_email = is_conversation_ending(user_input)
             
             # If the conversation seems to be ending, send the full email summary
             if should_send_email and len(full_conversations[session_id]) >= 2:
@@ -267,15 +310,14 @@ class Handler(BaseHTTPRequestHandler):
                         session_id, 
                         full_conversations[session_id]
                     )
-                    # Clear history after sending
-                    if session_id in conversation_history:
-                        del conversation_history[session_id]
+                    # Clear conversation after sending
                     if session_id in full_conversations:
                         del full_conversations[session_id]
                     if session_id in last_activity:
                         del last_activity[session_id]
                 except Exception as email_error:
                     print(f"Email notification error (non-critical): {str(email_error)}")
+                    traceback.print_exc()
             
             # Send response
             self.send_response(200)
