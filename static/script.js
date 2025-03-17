@@ -52,167 +52,95 @@ document.addEventListener('DOMContentLoaded', function() {
     let backendChecked = false;
     let backendAvailable = false;
     
-    // Try to load profile image from S3
+    // Direct S3 image URLs
+    const s3BaseUrl = "https://aboutbrooks.s3.us-east-1.amazonaws.com";
+    const s3Images = {
+        profileImage: `${s3BaseUrl}/Me%20on%20a%20boat%20in%20Alabama.jpeg`,
+        workshop: `${s3BaseUrl}/Workshop.jpeg`,
+        fishing: `${s3BaseUrl}/Sailfish.jpeg`,
+        reading: `${s3BaseUrl}/Book%20Vase.jpeg`,
+        projects: `${s3BaseUrl}/Carrier%20Pigeons.jpeg`
+    };
+    
+    // Try to load profile image from S3 directly
     function tryLoadS3Images() {
-        console.log("Checking for S3 images...");
-        fetch('/api/s3-images')
-            .then(response => {
-                if (response.ok) {
-                    return response.json();
-                } else {
-                    throw new Error("S3 images not available");
-                }
-            })
-            .then(data => {
-                if (data && data.profileImage) {
-                    // Set profile image
-                    const profileImg = document.getElementById('profile-image');
-                    const placeholder = document.getElementById('profile-image-placeholder');
-                    
-                    profileImg.src = data.profileImage;
-                    profileImg.onload = function() {
-                        placeholder.style.display = 'none';
-                        profileImg.style.display = 'block';
-                    };
-                    
-                    console.log("S3 profile image loaded");
-                }
-            })
-            .catch(error => {
-                console.log("S3 images not available:", error.message);
-            });
+        console.log("Loading S3 images directly...");
+        
+        // Try to set profile image if element exists
+        const profileImg = document.getElementById('profile-image');
+        const placeholder = document.getElementById('profile-image-placeholder');
+        
+        if (profileImg && placeholder) {
+            profileImg.src = s3Images.profileImage;
+            profileImg.onload = function() {
+                placeholder.style.display = 'none';
+                profileImg.style.display = 'block';
+                console.log("S3 profile image loaded successfully");
+            };
+            profileImg.onerror = function() {
+                console.log("Failed to load S3 profile image");
+            };
+        } else {
+            console.log("Profile image elements not found in the DOM");
+        }
     }
     
     // Try to load S3 images on page load
     setTimeout(tryLoadS3Images, 1000);
     
+    // Static deployment - backend status check simplified
     function checkBackendStatus() {
-        if (backendChecked) return Promise.resolve(backendAvailable);
+        console.log("Static deployment - no backend to check");
+        backendChecked = true;
+        backendAvailable = false; // We're in static mode without backend APIs
         
-        console.log("Checking backend status...");
+        // Show a simple notice about the static mode
+        const staticNotice = document.createElement('div');
+        staticNotice.style.position = 'fixed';
+        staticNotice.style.bottom = '10px';
+        staticNotice.style.right = '10px';
+        staticNotice.style.background = 'rgba(52, 152, 219, 0.7)';
+        staticNotice.style.color = 'white';
+        staticNotice.style.padding = '10px';
+        staticNotice.style.borderRadius = '5px';
+        staticNotice.style.zIndex = '1000';
+        staticNotice.style.maxWidth = '300px';
+        staticNotice.innerHTML = `Static Mode: Chat functionality coming soon!`;
         
-        // First try the simple test endpoint
-        return fetch('/test')
-            .then(response => {
-                if (response.ok) {
-                    console.log("Basic API test endpoint is responding!");
-                    backendChecked = true;
-                    backendAvailable = true;
-                    return true;
-                } else {
-                    console.log("Basic API test failed, trying debug endpoint...");
-                    // Fall back to the debug endpoint
-                    return fetch('/api/debug')
-                        .then(response => {
-                            backendChecked = true;
-                            if (response.ok) {
-                                console.log("Debug API is responding!");
-                                backendAvailable = true;
-                                return response.json();
-                            } else {
-                                console.error("Debug API is not responding:", response.status);
-                                backendAvailable = false;
-                                throw new Error(`API returned status ${response.status}`);
-                            }
-                        })
-                        .then(data => {
-                            if (data) console.log("API Debug endpoint response:", data);
-                            return true;
-                        });
-                }
-            })
-            .catch(error => {
-                console.error("Error checking backend:", error);
-                backendChecked = true;
-                backendAvailable = false;
-                
-                // Add a message to the UI to help with debugging
-                const debugInfo = document.createElement('div');
-                debugInfo.style.position = 'fixed';
-                debugInfo.style.bottom = '10px';
-                debugInfo.style.right = '10px';
-                debugInfo.style.background = 'rgba(255,0,0,0.7)';
-                debugInfo.style.color = 'white';
-                debugInfo.style.padding = '10px';
-                debugInfo.style.borderRadius = '5px';
-                debugInfo.style.zIndex = '1000';
-                debugInfo.style.maxWidth = '300px';
-                debugInfo.innerHTML = `API Error: ${error.message}<br>Please check browser console for details.`;
-                document.body.appendChild(debugInfo);
-                
-                return false;
-            });
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            staticNotice.style.opacity = '0';
+            staticNotice.style.transition = 'opacity 1s';
+            setTimeout(() => staticNotice.remove(), 1000);
+        }, 5000);
+        
+        document.body.appendChild(staticNotice);
+        
+        return Promise.resolve(false);
+    };
     }
     
     // Landing page transitions
     startChatButton.addEventListener('click', function() {
-        // First check if backend is available
-        checkBackendStatus().then(isAvailable => {
-            landingSection.style.display = 'none';
-            chatSection.style.display = 'block';
-            resetButton.style.display = 'block';
-            backToLandingButton.style.display = 'block';
+        // Show static notice
+        checkBackendStatus();
+        
+        // Switch to chat view
+        landingSection.style.display = 'none';
+        chatSection.style.display = 'block';
+        resetButton.style.display = 'block';
+        backToLandingButton.style.display = 'block';
+        
+        // Initialize chat with a greeting (static mode)
+        if (chatMessages.children.length === 0) {
+            addTypingIndicator();
             
-            // Initialize chat with a greeting
-            if (chatMessages.children.length === 0) {
-                addTypingIndicator();
-                
-                if (!isAvailable) {
-                    // If backend isn't responding, show a fallback message
-                    setTimeout(() => {
-                        removeTypingIndicator();
-                        addMessage('Sorry, the AI service is currently unavailable. Please try again later.', 'assistant');
-                    }, 1000);
-                    return;
-                }
-                
-                window.setTimeout(() => {
-                    removeTypingIndicator();
-                    
-                    // Try simplified hello message first
-                    fetch('/simple-chat', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ user_input: 'hello' })
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`API returned status ${response.status}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data && data.response) {
-                            addMessage(data.response, 'assistant');
-                        } else {
-                            throw new Error('Invalid response format');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error starting conversation:', error);
-                        
-                        // Fallback to regular chat endpoint
-                        fetch('/chat', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ user_input: 'hello' })
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            addMessage(data.response, 'assistant');
-                        })
-                        .catch(err => {
-                            console.error('Both endpoints failed:', err);
-                            addMessage('Hi there! 👋 I\'m Brooks\' personal AI assistant. Ask me anything about him, his interests, projects, or background!', 'assistant');
-                        });
-                    });
-                }, 1500);
-            }
-        });
+            // Show a static greeting message
+            setTimeout(() => {
+                removeTypingIndicator();
+                addMessage('Hi there! 👋 I\'m Brooks\' personal AI assistant. This is currently in static mode, but you can check back soon for interactive chat features!', 'assistant');
+            }, 1000);
+        }
     });
     
     backToLandingButton.addEventListener('click', function() {
