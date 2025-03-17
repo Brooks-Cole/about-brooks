@@ -1,6 +1,18 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log("Document loaded - script running!");
     
+    // Import and initialize data collector
+    import('./data_collection.js')
+        .then(module => {
+            const LolaDataCollector = module.default;
+            // Initialize with default settings
+            LolaDataCollector.initialize();
+            console.log("Data collector initialized");
+        })
+        .catch(error => {
+            console.error("Error loading data collector:", error);
+        });
+    
     // Simplified viewport height function
     function setVh() {
         let vh = window.innerHeight * 0.01;
