@@ -243,8 +243,8 @@ document.addEventListener('DOMContentLoaded', function() {
         textContainer.className = 'message-text';
         
         // Detect photo links and replace them with inline images
-        // Updated regex to handle URL encoded characters
-        const photoLinkRegex = /\/static\/images\/[^\s"'<>]+\.(jpeg|jpg|png|mov)/g;
+        // Updated regex to handle S3 URLs and URL encoded characters
+        const photoLinkRegex = /(https:\/\/aboutbrooks\.s3\.us-east-1\.amazonaws\.com\/[^\s"'<>]+\.(jpeg|jpg|png|mov))/g;
         let messageText = text;
         const links = messageText.match(photoLinkRegex);
         
@@ -473,8 +473,10 @@ document.addEventListener('DOMContentLoaded', function() {
         modalContent.className = 'photo-modal-content';
         
         const img = document.createElement('img');
-        // Use the filename as-is since it's already URL encoded from the backend
-        img.src = `/static/images/${photo.filename}`;
+        // Use the full S3 URL from the data-src attribute
+        img.src = photo.filename.includes('aboutbrooks.s3') ? 
+            photo.filename : 
+            `https://aboutbrooks.s3.us-east-1.amazonaws.com/${photo.filename}`;
         img.alt = photo.title;
         
         const caption = document.createElement('div');
