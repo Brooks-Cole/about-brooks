@@ -247,6 +247,18 @@ footer {
 .footer-info p {
     font-size: 0.8rem;
     color: var(--light-text);
+}
+
+.footer-info a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.footer-info a:hover {
+    text-decoration: underline;
+}
+
+button {
     margin-left: 15px;
 }
 

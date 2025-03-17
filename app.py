@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, send_from_directory
+from flask import Flask, request, jsonify, session, send_from_directory, redirect, url_for, render_template_string
 from flask_cors import CORS
 import anthropic
 from anthropic.types import MessageParam
@@ -9,6 +9,8 @@ from utils.personal_profile import PERSONAL_PROFILE
 from prompts.system_prompt import get_system_prompt
 from utils.investment_philosophy import INVESTMENT_PHILOSOPHY
 from utils.s3_utils import s3_image_url
+from authlib.integrations.flask_client import OAuth
+import secrets
 
 # Environment variables for configuration
 env_loaded = False
@@ -68,7 +70,7 @@ def configure_sessions(app):
     Configure sessions for Vercel deployment - serverless environment requires simpler session handling
     """
     # For serverless, we use simpler cookie-based sessions with a secret key from environment
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.environ.get('FLASK_SECRET_KEY', secrets.token_urlsafe(16)))
     # These settings help with cookie size in serverless environments
     # Store sessions in files for reliability
     app.config['SESSION_TYPE'] = 'filesystem'
@@ -122,6 +124,82 @@ CORS(app, resources={
         "allow_headers": ["Content-Type", "Authorization"]
     }
 })
+
+# Initialize OAuth
+oauth = OAuth(app)
+
+# Platform configurations (replace with your actual client IDs/secrets)
+PLATFORMS = {
+    'x': {
+        'client_id': os.environ.get('X_CLIENT_ID', 'your_x_client_id'),
+        'client_secret': os.environ.get('X_CLIENT_SECRET', 'your_x_client_secret'),
+        'authorize_url': 'https://twitter.com/i/oauth2/authorize',
+        'token_url': 'https://api.twitter.com/2/oauth2/token',
+        'scopes': ['tweet.read', 'users.read', 'offline.access'],
+        'pkce': True
+    },
+    'instagram': {
+        'client_id': os.environ.get('INSTAGRAM_CLIENT_ID', 'your_instagram_client_id'),
+        'client_secret': os.environ.get('INSTAGRAM_CLIENT_SECRET', 'your_instagram_client_secret'),
+        'authorize_url': 'https://api.instagram.com/oauth/authorize',
+        'token_url': 'https://api.instagram.com/oauth/access_token',
+        'scopes': ['user_profile', 'user_media']
+    },
+    'spotify': {
+        'client_id': os.environ.get('SPOTIFY_CLIENT_ID', 'your_spotify_client_id'),
+        'client_secret': os.environ.get('SPOTIFY_CLIENT_SECRET', 'your_spotify_client_secret'),
+        'authorize_url': 'https://accounts.spotify.com/authorize',
+        'token_url': 'https://accounts.spotify.com/api/token',
+        'scopes': ['user-read-recently-played', 'user-top-read']
+    },
+    'youtube': {
+        'client_id': os.environ.get('YOUTUBE_CLIENT_ID', 'your_youtube_client_id'),
+        'client_secret': os.environ.get('YOUTUBE_CLIENT_SECRET', 'your_youtube_client_secret'),
+        'authorize_url': 'https://accounts.google.com/o/oauth2/v2/auth',
+        'token_url': 'https://oauth2.googleapis.com/token',
+        'scopes': ['https://www.googleapis.com/auth/youtube.readonly']
+    },
+    'facebook': {
+        'client_id': os.environ.get('FACEBOOK_CLIENT_ID', 'your_facebook_client_id'),
+        'client_secret': os.environ.get('FACEBOOK_CLIENT_SECRET', 'your_facebook_client_secret'),
+        'authorize_url': 'https://www.facebook.com/v12.0/dialog/oauth',
+        'token_url': 'https://graph.facebook.com/v12.0/oauth/access_token',
+        'scopes': ['public_profile']
+    },
+    'linkedin': {
+        'client_id': os.environ.get('LINKEDIN_CLIENT_ID', 'your_linkedin_client_id'),
+        'client_secret': os.environ.get('LINKEDIN_CLIENT_SECRET', 'your_linkedin_client_secret'),
+        'authorize_url': 'https://www.linkedin.com/oauth/v2/authorization',
+        'token_url': 'https://www.linkedin.com/oauth/v2/accessToken',
+        'scopes': ['r_liteprofile']
+    },
+    'tiktok': {
+        'client_id': os.environ.get('TIKTOK_CLIENT_ID', 'your_tiktok_client_key'),
+        'client_secret': os.environ.get('TIKTOK_CLIENT_SECRET', 'your_tiktok_client_secret'),
+        'authorize_url': 'https://www.tiktok.com/v2/auth/authorize',
+        'token_url': 'https://open.tiktokapis.com/v2/oauth/token/',
+        'scopes': ['user.info.basic'],
+        'pkce': True,
+        'token_endpoint_auth_method': 'client_secret_post'
+    }
+}
+
+# Register OAuth clients
+for platform, config in PLATFORMS.items():
+    client_kwargs = {
+        'scope': ' '.join(config['scopes']),
+        'token_endpoint_auth_method': config.get('token_endpoint_auth_method', 'client_secret_basic')
+    }
+    if config.get('pkce'):
+        client_kwargs['code_challenge_method'] = 'S256'
+    oauth.register(
+        name=platform,
+        client_id=config['client_id'],
+        client_secret=config['client_secret'],
+        authorize_url=config['authorize_url'],
+        access_token_url=config['token_url'],
+        client_kwargs=client_kwargs
+    )
 
 # Add debug routes to check if backend is responding
 @app.route('/api/debug', methods=['GET'])
@@ -253,6 +331,43 @@ def truncate_history(history, max_messages=20):
     return history
 
 
+# Main page with consent and connect links
+@app.route('/oauth')
+def oauth_index():
+    if 'connected_platforms' not in session:
+        session['connected_platforms'] = []
+    return render_template('oauth.html', platforms=PLATFORMS.keys(), connected=session['connected_platforms'])
+
+# Initiate OAuth for a platform
+@app.route('/connect/<platform>')
+def connect(platform):
+    if platform not in PLATFORMS:
+        return "Invalid platform", 400
+    if 'consent' not in session or not session['consent']:
+        return redirect(url_for('oauth_index'))
+    redirect_uri = url_for('callback', platform=platform, _external=True)
+    return oauth.create_client(platform).authorize_redirect(redirect_uri)
+
+# Handle OAuth callback
+@app.route('/callback/<platform>')
+def callback(platform):
+    if platform not in PLATFORMS:
+        return "Invalid platform", 400
+    client = oauth.create_client(platform)
+    token = client.authorize_access_token()
+    session[f'{platform}_token'] = token
+    if platform not in session['connected_platforms']:
+        session['connected_platforms'].append(platform)
+    session.modified = True
+    return redirect(url_for('oauth_index'))
+
+# Consent endpoint (for frontend to toggle)
+@app.route('/set-consent', methods=['POST'])
+def set_consent():
+    session['consent'] = request.json.get('consent', False)
+    session.modified = True
+    return {'status': 'success'}
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
@@ -295,10 +410,7 @@ def chat():
         if relevant_photos:
             photo_context = "Here are some relevant photos you can reference in your response:\n"
             for photo in relevant_photos:
-                photo_context += f"- {
-                    photo['title']}: {
-                    photo['description']}. Filename: {
-                    photo['filename']}\n"
+                photo_context += f"- {photo['title']}: {photo['description']}. Filename: {photo['filename']}\n"
             # Get S3 bucket name from environment variable
             s3_bucket = os.environ.get('AWS_S3_BUCKET')
             s3_enabled = False
@@ -356,6 +468,42 @@ def chat():
         if photo_context:
             system_prompt += f"\n\n# Relevant Photos for This Query\n{photo_context}\n"
 
+        # Add social platform data if available
+        social_data = ""
+        # Check if we're using a connected social platform
+        if 'connected_platforms' in session and session['connected_platforms']:
+            social_data = "\n\n# User Social Data\n"
+            for platform in session['connected_platforms']:
+                if f'{platform}_token' in session:
+                    social_data += f"- Connected to {platform.capitalize()}\n"
+                    # Fetch platform-specific data
+                    try:
+                        client = oauth.create_client(platform)
+                        token = session[f'{platform}_token']
+                        
+                        if platform == 'x':
+                            # Get X (Twitter) data if connected
+                            resp = client.get('https://api.twitter.com/2/users/me', token=token)
+                            if resp.status_code == 200:
+                                twitter_data = resp.json().get('data', {})
+                                social_data += f"  - X Username: @{twitter_data.get('username', 'unknown')}\n"
+                        
+                        elif platform == 'spotify':
+                            # Get Spotify data if connected
+                            resp = client.get('https://api.spotify.com/v1/me/player/recently-played', token=token)
+                            if resp.status_code == 200:
+                                spotify_data = resp.json().get('items', [])
+                                if spotify_data:
+                                    track = spotify_data[0]['track']
+                                    social_data += f"  - Recently played: {track.get('name', 'unknown')} by {track.get('artists', [{}])[0].get('name', 'unknown')}\n"
+                    
+                    except Exception as e:
+                        print(f"Error fetching social data for {platform}: {str(e)}")
+            
+            # If we have platform data, include it in the system prompt
+            if social_data:
+                system_prompt += social_data
+
         # Call Claude API
         try:
             
@@ -380,7 +528,7 @@ def chat():
                 model="claude-3-5-sonnet-20241022",  # Updated to newer model
                 system=system_prompt,
                 messages=messages,
-                max_tokens=1500,
+                max_tokens=4000,  # Increased from 1500 to 4000
                 temperature=0.7
             )
             
@@ -838,7 +986,7 @@ def simple_chat():
                 model="claude-3-5-sonnet-20241022",
                 system=simple_system,
                 messages=messages,
-                max_tokens=500,
+                max_tokens=4000,  # Increased from 500 to 4000
                 temperature=0.7
             )
 
@@ -1057,7 +1205,25 @@ def diagnose_api():
         "error_type": api_error_type if not api_responsive and 'api_error_type' in locals() else None
     }
     
-    # 6. Collect system info
+    # 6. Check OAuth client registration
+    oauth_status = False
+    registered_platforms = []
+    try:
+        for platform in PLATFORMS:
+            client = oauth.create_client(platform)
+            if client:
+                registered_platforms.append(platform)
+        oauth_status = len(registered_platforms) > 0
+    except Exception as e:
+        oauth_error = str(e)
+        
+    results["checks"]["oauth_setup"] = {
+        "status": "pass" if oauth_status else "fail",
+        "details": f"OAuth registered platforms: {', '.join(registered_platforms) if registered_platforms else 'none'}",
+        "error": oauth_error if not oauth_status and 'oauth_error' in locals() else None
+    }
+    
+    # 7. Collect system info
     import sys
     import platform
     
@@ -1101,10 +1267,26 @@ def serve_css():
 def serve_js():
     return send_from_directory('static', 'script.js')
 
+@app.route('/privacy')
+def privacy_policy():
+    return send_from_directory('static', 'PrivacyStatement.html')
+
 
 # For local development
 # Using port 5001 to avoid conflict with AirPlay Receiver
 if __name__ == '__main__':
+    # Check if ngrok is available and set up tunnel
+    try:
+        from pyngrok import ngrok
+        # Start a tunnel on the specified port
+        http_tunnel = ngrok.connect(5001)
+        print(f"\n* Ngrok tunnel available at: {http_tunnel.public_url}")
+        print(f"* Local URL: http://127.0.0.1:5001")
+    except ImportError:
+        print("Ngrok not installed. Run 'pip install pyngrok' to enable tunneling.")
+    except Exception as e:
+        print(f"Error setting up ngrok tunnel: {str(e)}")
+        
     app.run(debug=True, port=5001)
 
 # This is needed for Vercel deployment
