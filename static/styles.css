@@ -476,9 +476,22 @@ footer {
 }
 
 .highlight-item p {
-    padding: 0 15px 15px;
+    padding: 0 15px 5px;
     font-size: 0.9rem;
     color: var(--light-text);
+}
+
+.story-section {
+    padding: 0 15px 15px;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 5px;
+}
+
+.story-section p {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-color);
+    padding: 10px 0 5px;
 }
 
 .intro-cta {
