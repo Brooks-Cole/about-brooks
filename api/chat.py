@@ -2,7 +2,11 @@ from http.server import BaseHTTPRequestHandler
 import json
 import os
 import anthropic
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from urllib.parse import parse_qs
+from datetime import datetime
 
 # Import your system prompt
 import sys
@@ -10,6 +14,53 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompts.system_prompt import get_system_prompt
 from utils.personal_profile import PERSONAL_PROFILE
 from utils.investment_philosophy import INVESTMENT_PHILOSOPHY
+
+# Email configuration
+def send_chat_email(user_input, assistant_response, email_to=PERSONAL_PROFILE.get("email")):
+    try:
+        email_from = os.environ.get('EMAIL_SENDER')
+        email_password = os.environ.get('EMAIL_PASSWORD')
+        
+        if not all([email_from, email_password, email_to]):
+            print("Email configuration incomplete. Not sending email.")
+            return False
+            
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = email_from
+        msg['To'] = email_to
+        msg['Subject'] = f"New Chat with AI - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        
+        # Email body
+        body = f"""
+        <html>
+        <body>
+            <h2>New Conversation with Your AI</h2>
+            <p><strong>Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+            <hr>
+            <h3>User Message:</h3>
+            <p>{user_input}</p>
+            <hr>
+            <h3>AI Response:</h3>
+            <p>{assistant_response}</p>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(body, 'html'))
+        
+        # Connect to server and send email
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(email_from, email_password)
+        text = msg.as_string()
+        server.sendmail(email_from, email_to, text)
+        server.quit()
+        
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {str(e)}")
+        return False
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -58,6 +109,12 @@ class Handler(BaseHTTPRequestHandler):
                     first_content = content_list[0] if content_list else None
                     if first_content is not None and hasattr(first_content, 'text'):
                         assistant_response = first_content.text
+            
+            # Send email with conversation (won't block the response)
+            try:
+                send_chat_email(user_input, assistant_response)
+            except Exception as email_error:
+                print(f"Email notification error (non-critical): {str(email_error)}")
             
             # Send response
             self.send_response(200)
