@@ -13,12 +13,79 @@ import time
 import traceback
 import html
 
+# Common carrier email-to-SMS gateways
+CARRIER_GATEWAYS = {
+    'verizon': 'vtext.com',
+    'tmobile': 'tmomail.net',
+    'att': 'txt.att.net',
+    'sprint': 'messaging.sprintpcs.com',
+    'boost': 'sms.myboostmobile.com',
+    'cricket': 'sms.cricketwireless.net',
+    'uscellular': 'email.uscc.net',
+}
+
 # Import your system prompt
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompts.system_prompt import get_system_prompt
 from utils.personal_profile import PERSONAL_PROFILE
 from utils.investment_philosophy import INVESTMENT_PHILOSOPHY
+
+# SMS notification functions
+def send_sms_via_email(message, phone_number=None, carrier=None):
+    """Send SMS via email-to-SMS gateway"""
+    try:
+        # Get credentials from environment variables
+        email_from = os.environ.get('EMAIL_SENDER')
+        email_password = os.environ.get('EMAIL_PASSWORD')
+        phone_number = phone_number or os.environ.get('ADMIN_PHONE_NUMBER')
+        carrier = carrier or os.environ.get('CARRIER', 'verizon')  # Default to Verizon
+        
+        # Check if all required credentials are available
+        if not all([email_from, email_password, phone_number]):
+            logger.warning("Email-to-SMS configuration incomplete. SMS not sent.")
+            return False
+        
+        # Validate carrier
+        if carrier.lower() not in CARRIER_GATEWAYS:
+            logger.warning(f"Unknown carrier: {carrier}. Using Verizon as default.")
+            carrier = 'verizon'
+        
+        # Format recipient address
+        recipient = f"{phone_number}@{CARRIER_GATEWAYS[carrier.lower()]}"
+        
+        # Create message
+        msg = MIMEText(message)
+        msg['From'] = email_from
+        msg['To'] = recipient
+        msg['Subject'] = ''  # Subject is often ignored in SMS gateways
+        
+        # Connect to server and send email
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(email_from, email_password)
+        server.sendmail(email_from, recipient, msg.as_string())
+        server.quit()
+        
+        logger.info(f"SMS via email gateway sent to {phone_number}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send SMS via email: {str(e)}")
+        return False
+
+# Format a conversation exchange for SMS
+def format_conversation_for_sms(user_message, ai_response, session_id):
+    """Format messages for SMS delivery (truncated for length limits)"""
+    # Truncate messages if they're too long for SMS
+    if len(user_message) > 100:
+        user_message = user_message[:97] + "..."
+    if len(ai_response) > 300:
+        ai_response = ai_response[:297] + "..."
+    
+    # Format the message - keep it minimal for SMS
+    sms_text = f"USER: {user_message}\nAI: {ai_response}"
+    
+    return sms_text
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -311,7 +378,7 @@ class Handler(BaseHTTPRequestHandler):
             # Debug logging to see conversation length
             print(f"Conversation {session_id[:8]}... now has {len(full_conversations[session_id])} messages")
             
-            # Log the conversation exchange
+            # Log the conversation exchange and send SMS
             try:
                 user_agent = self.headers.get('User-Agent', 'unknown')
                 # Get IP address safely (may not be available in all environments)
@@ -336,6 +403,16 @@ class Handler(BaseHTTPRequestHandler):
                 
                 # Write to log
                 conversation_logger.info(log_entry)
+                
+                # Send SMS notification for each message exchange
+                try:
+                    # Format the message for SMS
+                    sms_text = format_conversation_for_sms(user_input, assistant_response, session_id)
+                    # Send the SMS
+                    send_sms_via_email(sms_text)
+                except Exception as sms_error:
+                    logger.error(f"Failed to send SMS notification: {str(sms_error)}")
+                    # Continue even if SMS fails
             except Exception as log_error:
                 # If logging fails, don't break the main functionality
                 logger.error(f"Failed to log conversation: {str(log_error)}")
