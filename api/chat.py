@@ -15,8 +15,11 @@ from prompts.system_prompt import get_system_prompt
 from utils.personal_profile import PERSONAL_PROFILE
 from utils.investment_philosophy import INVESTMENT_PHILOSOPHY
 
+# Conversation tracking for email reports
+conversation_history = {}
+
 # Email configuration
-def send_chat_email(user_input, assistant_response, email_to=PERSONAL_PROFILE.get("email")):
+def send_conversation_email(conversation_id, messages, email_to=PERSONAL_PROFILE.get("email")):
     try:
         email_from = os.environ.get('EMAIL_SENDER')
         email_password = os.environ.get('EMAIL_PASSWORD')
@@ -29,20 +32,30 @@ def send_chat_email(user_input, assistant_response, email_to=PERSONAL_PROFILE.ge
         msg = MIMEMultipart()
         msg['From'] = email_from
         msg['To'] = email_to
-        msg['Subject'] = f"New Chat with AI - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        msg['Subject'] = f"Complete AI Conversation - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        
+        # Build HTML body
+        conversation_html = ""
+        for i, message in enumerate(messages):
+            role = "User" if i % 2 == 0 else "AI"
+            conversation_html += f"""
+            <div style="margin-bottom: 15px;">
+                <h3>{role}:</h3>
+                <p style="margin-left: 20px;">{message}</p>
+                {'' if i == len(messages)-1 else '<hr style="border-top: 1px solid #ddd;">'}
+            </div>
+            """
         
         # Email body
         body = f"""
         <html>
         <body>
-            <h2>New Conversation with Your AI</h2>
+            <h2>Complete Conversation with Your AI</h2>
             <p><strong>Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-            <hr>
-            <h3>User Message:</h3>
-            <p>{user_input}</p>
-            <hr>
-            <h3>AI Response:</h3>
-            <p>{assistant_response}</p>
+            <p><strong>Conversation ID:</strong> {conversation_id[:8]}...</p>
+            <div style="margin-top: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px;">
+                {conversation_html}
+            </div>
         </body>
         </html>
         """
@@ -110,11 +123,38 @@ class Handler(BaseHTTPRequestHandler):
                     if first_content is not None and hasattr(first_content, 'text'):
                         assistant_response = first_content.text
             
-            # Send email with conversation (won't block the response)
-            try:
-                send_chat_email(user_input, assistant_response)
-            except Exception as email_error:
-                print(f"Email notification error (non-critical): {str(email_error)}")
+            # Generate a conversation ID from user agent and timestamp if not exists
+            user_agent = self.headers.get('User-Agent', 'unknown')
+            conversation_id = user_agent + str(datetime.now().timestamp())
+            
+            # Update conversation history
+            if conversation_id not in conversation_history:
+                conversation_history[conversation_id] = []
+            
+            # Add the latest messages
+            conversation_history[conversation_id].append(user_input)
+            conversation_history[conversation_id].append(assistant_response)
+            
+            # Check if this might be the end of a conversation (simple heuristic)
+            # Keywords that might indicate end of conversation or natural stopping point
+            end_indicators = [
+                "goodbye", "bye", "thank", "thanks", "that's all", "that is all", 
+                "have a good", "talk later", "talk to you later", "ttyl"
+            ]
+            
+            should_send_email = any(indicator in user_input.lower() for indicator in end_indicators)
+            
+            # If the conversation seems to be ending, send the full email summary
+            if should_send_email and len(conversation_history[conversation_id]) >= 2:
+                try:
+                    send_conversation_email(
+                        conversation_id, 
+                        conversation_history[conversation_id]
+                    )
+                    # Clear history after sending
+                    del conversation_history[conversation_id]
+                except Exception as email_error:
+                    print(f"Email notification error (non-critical): {str(email_error)}")
             
             # Send response
             self.send_response(200)
