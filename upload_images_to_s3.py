@@ -37,11 +37,11 @@ print("This may take a while for many or large images...")
 # Time the upload
 start_time = time.time()
 
-# Upload all images to S3 (ACL disabled buckets don't support public-read)
+# Upload all images to S3 directly to root (ACL disabled buckets don't support public-read)
 results = upload_directory_to_s3(
     image_directory, 
     bucket_name, 
-    prefix="images", 
+    prefix="", 
     make_public=False
 )
 

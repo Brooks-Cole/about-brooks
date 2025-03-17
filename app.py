@@ -159,13 +159,13 @@ def s3_images():
         region = os.environ.get('AWS_REGION', 'us-east-1')
         base_url = f"https://{s3_bucket}.s3.{region}.amazonaws.com"
         
-        # URLs for key images
+        # URLs for key images - directly from bucket root
         images = {
-            "profileImage": f"{base_url}/images/Me%20on%20a%20boat%20in%20Alabama.jpeg",
-            "workshop": f"{base_url}/images/Workshop.jpeg",
-            "fishing": f"{base_url}/images/Sailfish.jpeg",
-            "reading": f"{base_url}/images/Book%20Vase.jpeg",
-            "projects": f"{base_url}/images/Carrier%20Pigeons.jpeg",
+            "profileImage": f"{base_url}/Me%20on%20a%20boat%20in%20Alabama.jpeg",
+            "workshop": f"{base_url}/Workshop.jpeg",
+            "fishing": f"{base_url}/Sailfish.jpeg",
+            "reading": f"{base_url}/Book%20Vase.jpeg",
+            "projects": f"{base_url}/Carrier%20Pigeons.jpeg",
             "bucketInfo": {
                 "name": s3_bucket,
                 "region": region,
