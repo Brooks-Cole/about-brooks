@@ -8,6 +8,18 @@ document.addEventListener('DOMContentLoaded', function() {
             // Initialize with default settings
             LolaDataCollector.initialize();
             console.log("Data collector initialized");
+            
+            // Show the opt-in experience after a delay
+            setTimeout(() => {
+                // Only show if the user hasn't made a choice yet
+                if (!localStorage.getItem('lola_enhancedExperienceShown')) {
+                    LolaDataCollector.offerEnhancedExperience((choice) => {
+                        console.log(`User chose ${choice ? 'enhanced' : 'basic'} experience`);
+                        localStorage.setItem('lola_enhancedExperienceShown', 'true');
+                        // Update your AI with the new data permissions
+                    });
+                }
+            }, 30000); // Show after 30 seconds
         })
         .catch(error => {
             console.error("Error loading data collector:", error);

@@ -454,90 +454,174 @@ const LolaDataCollector = {
    * @param {Function} callback - Callback after user decision
    */
   offerEnhancedExperience: function(callback) {
-    // This would be implemented using your UI framework of choice
-    // Here's a basic implementation
+    // Create styled modal matching the app's design
     
     const modal = document.createElement('div');
+    modal.className = 'data-collector-modal';
     modal.style.cssText = `
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(44, 62, 80, 0.8);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 9999;
+      backdrop-filter: blur(5px);
+      animation: fadeIn 0.3s ease-in-out;
     `;
     
     const content = document.createElement('div');
+    content.className = 'data-collector-content';
     content.style.cssText = `
       background: white;
       padding: 30px;
-      border-radius: 8px;
+      border-radius: 10px;
       max-width: 500px;
       text-align: center;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      animation: scaleIn 0.3s ease-in-out;
     `;
     
     const title = document.createElement('h2');
-    title.textContent = 'Unlock Lola\'s Mind-Reading Powers!';
+    title.textContent = 'Enhance Your Chat with Brooks';
+    title.style.cssText = `
+      color: #3498db;
+      margin-bottom: 15px;
+      font-size: 1.8rem;
+    `;
     
     const body = document.createElement('p');
-    body.textContent = 'Want Lola to surprise you with uncanny insights? ' +
-                      'Enable Enhanced Experience to let her use more data to ' +
-                      'create magical moments in your conversations!';
+    body.textContent = 'Would you like to enable enhanced data collection to make your conversations with Brooks more personalized?';
+    body.style.cssText = `
+      color: #333;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    `;
     
     const privacyInfo = document.createElement('p');
-    privacyInfo.style.fontSize = '0.8em';
-    privacyInfo.style.opacity = '0.7';
-    privacyInfo.textContent = 'This includes data about your device, location, ' +
-                             'and browsing patterns to create a more personalized experience.';
+    privacyInfo.style.cssText = `
+      font-size: 0.9rem;
+      color: #777;
+      margin-bottom: 20px;
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 6px;
+      text-align: left;
+    `;
+    privacyInfo.innerHTML = 'This includes data about: <br>• Your device and browser<br>• Your general location<br>• Your browsing patterns<br><br>This helps Brooks tailor his responses to your specific context.';
     
     const buttonContainer = document.createElement('div');
-    buttonContainer.style.marginTop = '20px';
+    buttonContainer.style.cssText = `
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 25px;
+    `;
     
     const basicButton = document.createElement('button');
-    basicButton.textContent = 'Keep it Basic';
+    basicButton.textContent = 'Keep Basic';
     basicButton.style.cssText = `
-      padding: 10px 20px;
-      margin: 0 10px;
-      border: none;
-      background: #ccc;
-      border-radius: 4px;
+      padding: 12px 20px;
+      border: 1px solid #3498db;
+      background: white;
+      color: #3498db;
+      border-radius: 25px;
       cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s;
     `;
     
     const enhancedButton = document.createElement('button');
-    enhancedButton.textContent = 'Blow My Mind';
+    enhancedButton.textContent = 'Enable Enhanced';
     enhancedButton.style.cssText = `
-      padding: 10px 20px;
-      margin: 0 10px;
+      padding: 12px 20px;
       border: none;
-      background: #4a90e2;
+      background: #3498db;
       color: white;
-      border-radius: 4px;
+      border-radius: 25px;
       cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3);
     `;
+    
+    // Add hover effects
+    basicButton.onmouseover = function() {
+      this.style.backgroundColor = '#f5f5f5';
+    };
+    basicButton.onmouseout = function() {
+      this.style.backgroundColor = 'white';
+    };
+    
+    enhancedButton.onmouseover = function() {
+      this.style.backgroundColor = '#2980b9';
+    };
+    enhancedButton.onmouseout = function() {
+      this.style.backgroundColor = '#3498db';
+    };
+    
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes scaleIn {
+        from { transform: scale(0.9); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
     
     // Event listeners
     basicButton.addEventListener('click', () => {
       this.setUserPreference('enhancedExperience', false);
-      document.body.removeChild(modal);
+      content.style.animation = 'scaleIn 0.3s ease-in-out reverse';
+      modal.style.animation = 'fadeIn 0.3s ease-in-out reverse';
+      setTimeout(() => {
+        document.body.removeChild(modal);
+      }, 300);
       if (callback) callback(false);
     });
     
     enhancedButton.addEventListener('click', () => {
       this.setUserPreference('enhancedExperience', true);
       this.collectEnhancedData();
-      document.body.removeChild(modal);
+      content.style.animation = 'scaleIn 0.3s ease-in-out reverse';
+      modal.style.animation = 'fadeIn 0.3s ease-in-out reverse';
+      setTimeout(() => {
+        document.body.removeChild(modal);
+      }, 300);
       if (callback) callback(true);
     });
+    
+    // Add close X button
+    const closeButton = document.createElement('span');
+    closeButton.innerHTML = '&times;';
+    closeButton.style.cssText = `
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 24px;
+      color: #999;
+      cursor: pointer;
+    `;
+    closeButton.onclick = function() {
+      // Consider this a rejection of enhanced mode
+      basicButton.click();
+    };
     
     // Append elements
     buttonContainer.appendChild(basicButton);
     buttonContainer.appendChild(enhancedButton);
     
+    content.appendChild(closeButton);
     content.appendChild(title);
     content.appendChild(body);
     content.appendChild(privacyInfo);
