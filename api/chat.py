@@ -4,10 +4,13 @@ import os
 import random
 import anthropic
 import smtplib
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from urllib.parse import parse_qs
 from datetime import datetime
+import time
+import traceback
 
 # Import your system prompt
 import sys
@@ -15,6 +18,30 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompts.system_prompt import get_system_prompt
 from utils.personal_profile import PERSONAL_PROFILE
 from utils.investment_philosophy import INVESTMENT_PHILOSOPHY
+
+# Setup logging
+LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs')
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Configure main logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("chat_api")
+
+# Configure conversation logger - separate from main application logs
+conversation_logger = logging.getLogger("conversations")
+conversation_logger.setLevel(logging.INFO)
+
+# Create a file handler that logs to a different file each day
+log_file = os.path.join(LOG_DIR, f"conversations_{datetime.now().strftime('%Y-%m-%d')}.log")
+file_handler = logging.FileHandler(log_file)
+file_handler.setLevel(logging.INFO)
+
+# Create a formatter for the logs
+formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
+file_handler.setFormatter(formatter)
+
+# Add the handlers to the logger
+conversation_logger.addHandler(file_handler)
 
 # Conversation tracking for email reports
 conversation_history = {}
@@ -207,6 +234,23 @@ class Handler(BaseHTTPRequestHandler):
             full_conversations[session_id].append(user_input)
             full_conversations[session_id].append(assistant_response)
             
+            # Log the conversation exchange
+            user_agent = self.headers.get('User-Agent', 'unknown')
+            ip_address = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+            
+            # Log in a structured format that's easy to parse later
+            log_entry = json.dumps({
+                'timestamp': datetime.now().isoformat(),
+                'session_id': session_id[:8] + '...',  # Truncate for privacy
+                'user_agent': user_agent[:50] + '...' if len(user_agent) > 50 else user_agent,
+                'ip_address': ip_address,
+                'user_message': user_input,
+                'ai_response': assistant_response
+            })
+            
+            # Write to log file
+            conversation_logger.info(log_entry)
+            
             # Check if this might be the end of a conversation (simple heuristic)
             # Keywords that might indicate end of conversation or natural stopping point
             end_indicators = [
@@ -248,14 +292,24 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(response_data.encode('utf-8'))
             
         except Exception as e:
-            print(f"Error: {str(e)}")
+            error_msg = str(e)
+            stack_trace = traceback.format_exc()
+            
+            # Log the error
+            logger.error(f"API Error: {error_msg}")
+            logger.error(f"Stack trace: {stack_trace}")
+            
+            # Log in conversation log too for context
+            conversation_logger.error(f"API Error: {error_msg}")
+            
+            # Send response to client
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             
             error_data = json.dumps({
-                'error': str(e)
+                'error': error_msg
             })
             
             self.wfile.write(error_data.encode('utf-8'))

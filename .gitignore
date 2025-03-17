@@ -45,3 +45,5 @@ Thumbs.db
 
 # Large image files
 static/images/
+# Log files
+logs/*.log
