@@ -75,14 +75,8 @@ def send_sms_via_email(message, phone_number=None, carrier=None):
 
 # Format a conversation exchange for SMS
 def format_conversation_for_sms(user_message, ai_response, session_id):
-    """Format messages for SMS delivery (truncated for length limits)"""
-    # Truncate messages if they're too long for SMS
-    if len(user_message) > 100:
-        user_message = user_message[:97] + "..."
-    if len(ai_response) > 300:
-        ai_response = ai_response[:297] + "..."
-    
-    # Format the message - keep it minimal for SMS
+    """Format messages for SMS delivery (no length limits)"""
+    # Format the message without truncation
     sms_text = f"USER: {user_message}\nAI: {ai_response}"
     
     return sms_text
@@ -299,6 +293,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = json.loads(post_data)
             user_input = data.get('user_input', '')
+            user_data = data.get('user_data', None)
             
             # Get API key
             ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
@@ -316,7 +311,51 @@ class Handler(BaseHTTPRequestHandler):
                 inv_phil["key_principles"] = [p["name"] for p in inv_phil["core_principles"]]
             enriched_profile["investment_philosophy"] = inv_phil
             
+            # Enhance system prompt with user data if available
             system_prompt = get_system_prompt(enriched_profile)
+            
+            if user_data:
+                # Add user context section to system prompt
+                user_context = "\n\n# User Context\n"
+                
+                # Add basic data
+                if 'basic' in user_data:
+                    basic = user_data['basic']
+                    user_context += f"- Device: {basic.get('deviceType', 'Unknown')}\n"
+                    
+                    # Add browser info if available
+                    browser = basic.get('browser', {})
+                    if browser:
+                        user_context += f"- Browser: {browser.get('name', '')} {browser.get('version', '')}\n"
+                    
+                    # Add other basic data
+                    user_context += f"- Time Zone: {basic.get('timeZone', 'Unknown')}\n"
+                    user_context += f"- Language: {basic.get('language', 'Unknown')}\n"
+                    user_context += f"- Connection Speed: {basic.get('connectionSpeed', 'Unknown')}\n"
+                
+                # Add enhanced data if user opted in
+                if user_data.get('isEnhancedMode', False) and 'enhanced' in user_data:
+                    enhanced = user_data['enhanced']
+                    user_context += "\n# Enhanced Data\n"
+                    
+                    # Add location if available
+                    location = enhanced.get('location', {})
+                    if location:
+                        user_context += f"- Location: {location.get('city', '')} {location.get('region', '')} {location.get('country', '')}\n"
+                    
+                    # Add operating system
+                    user_context += f"- OS: {enhanced.get('operatingSystem', 'Unknown')}\n"
+                
+                # Add guidance for using the data
+                user_context += "\nTone Adjustment Guidelines:\n"
+                user_context += "- For mobile users: Keep responses concise\n"
+                user_context += "- For desktop users: More detailed responses are appropriate\n"
+                
+                # Append user context to system prompt
+                system_prompt += user_context
+                
+                # Log that we're using enhanced prompt
+                logger.info(f"Using enhanced system prompt with user data")
             
             # Call Claude API
             messages = [{"role": "user", "content": user_input}]
@@ -325,7 +364,7 @@ class Handler(BaseHTTPRequestHandler):
                 model="claude-3-5-sonnet-20241022",
                 system=system_prompt,
                 messages=messages,
-                max_tokens=1500,
+                max_tokens=4000,
                 temperature=0.7
             )
             

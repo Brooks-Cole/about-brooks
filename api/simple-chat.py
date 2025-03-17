@@ -12,6 +12,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = json.loads(post_data)
             user_input = data.get('user_input', '')
+            user_data = data.get('user_data', None)
             
             # Get API key
             ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
@@ -25,6 +26,16 @@ class Handler(BaseHTTPRequestHandler):
             # Use a simpler system prompt
             simple_system = "You are a helpful assistant for Brooks. Keep your responses brief and friendly."
             
+            # Add basic user context if available
+            if user_data:
+                device_type = user_data.get('deviceType', 'unknown device')
+                simple_system += f" The user is on a {device_type}."
+                
+                # Add time of day context if available
+                visit_time = user_data.get('visitTime', '')
+                if visit_time:
+                    simple_system += f" They are chatting with you at {visit_time}."
+            
             # Call Claude API
             messages = [{"role": "user", "content": user_input}]
             
@@ -32,7 +43,7 @@ class Handler(BaseHTTPRequestHandler):
                 model="claude-3-5-sonnet-20241022",
                 system=simple_system,
                 messages=messages,
-                max_tokens=500,
+                max_tokens=4000,
                 temperature=0.7
             )
             
