@@ -99,6 +99,8 @@ def cleanup_inactive_sessions():
     return len(sessions_to_remove)
 
 # Improved email formatting with better styling
+# Replace your current send_conversation_email function with this one:
+
 def send_conversation_email(conversation_id, messages, email_to=PERSONAL_PROFILE.get("email"), subject=None):
     try:
         email_from = os.environ.get('EMAIL_SENDER')
@@ -122,7 +124,12 @@ def send_conversation_email(conversation_id, messages, email_to=PERSONAL_PROFILE
         # Build HTML body with improved styling
         conversation_html = ""
         
-        for i, message in enumerate(messages):
+        # This is the key change - make sure we're processing ALL messages in the conversation
+        total_messages = len(messages)
+        print(f"Preparing email with {total_messages} messages")
+        
+        for i in range(total_messages):
+            message = messages[i]
             role_is_user = i % 2 == 0
             role = "User" if role_is_user else "AI"
             
@@ -132,7 +139,7 @@ def send_conversation_email(conversation_id, messages, email_to=PERSONAL_PROFILE
                 style = "background-color: #e1f5fe; border-radius: 10px; padding: 15px; margin-bottom: 10px;"
                 
             # Convert plain text to HTML with line breaks preserved
-            formatted_message = html.escape(message).replace('\n', '<br>')
+            formatted_message = html.escape(str(message)).replace('\n', '<br>')
             
             conversation_html += f"""
             <div style="{style}">
@@ -183,13 +190,13 @@ def send_conversation_email(conversation_id, messages, email_to=PERSONAL_PROFILE
         server.sendmail(email_from, email_to, text)
         server.quit()
         
-        print(f"Email sent successfully for conversation {conversation_id[:8]}...")
+        print(f"Email sent successfully for conversation {conversation_id[:8]}... with {total_messages} messages")
         return True
     except Exception as e:
         print(f"Failed to send email: {str(e)}")
         traceback.print_exc()
         return False
-
+    
 # Enhanced trigger detection for conversation end
 def is_conversation_ending(message):
     """
@@ -215,6 +222,8 @@ def is_conversation_ending(message):
     return direct_match or short_thank
 
 class Handler(BaseHTTPRequestHandler):
+    # Replace the do_POST method in your Handler class with this one:
+    
     def do_POST(self):
         # Parse request
         content_length = int(self.headers['Content-Length'])
@@ -229,7 +238,7 @@ class Handler(BaseHTTPRequestHandler):
             if not ANTHROPIC_API_KEY:
                 self.send_error(500, "API key not configured")
                 return
-
+    
             # Initialize Claude client
             client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
             
@@ -295,9 +304,12 @@ class Handler(BaseHTTPRequestHandler):
             # Update last activity time (for timeout detection)
             last_activity[session_id] = datetime.now().timestamp()
             
-            # Add the latest messages to both history trackers
+            # Add the latest messages to conversation history
             full_conversations[session_id].append(user_input)
             full_conversations[session_id].append(assistant_response)
+            
+            # Debug logging to see conversation length
+            print(f"Conversation {session_id[:8]}... now has {len(full_conversations[session_id])} messages")
             
             # Log the conversation exchange
             try:
@@ -335,15 +347,23 @@ class Handler(BaseHTTPRequestHandler):
             # If the conversation seems to be ending, send the full email summary
             if should_send_email and len(full_conversations[session_id]) >= 2:
                 try:
-                    send_conversation_email(
+                    # Important: Log the number of messages before sending
+                    print(f"Sending email for conversation with {len(full_conversations[session_id])} messages")
+                    
+                    success = send_conversation_email(
                         session_id, 
                         full_conversations[session_id]
                     )
-                    # Clear conversation after sending
-                    if session_id in full_conversations:
-                        del full_conversations[session_id]
-                    if session_id in last_activity:
-                        del last_activity[session_id]
+                    
+                    if success:
+                        print(f"Email sent successfully with {len(full_conversations[session_id])} messages")
+                        # Clear conversation after sending
+                        if session_id in full_conversations:
+                            del full_conversations[session_id]
+                        if session_id in last_activity:
+                            del last_activity[session_id]
+                    else:
+                        print("Failed to send email, keeping conversation in memory")
                 except Exception as email_error:
                     print(f"Email notification error (non-critical): {str(email_error)}")
                     traceback.print_exc()
@@ -384,7 +404,7 @@ class Handler(BaseHTTPRequestHandler):
             })
             
             self.wfile.write(error_data.encode('utf-8'))
-    
+
     def do_OPTIONS(self):
         # Handle CORS preflight requests
         self.send_response(200)
