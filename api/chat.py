@@ -19,6 +19,9 @@ from utils.investment_philosophy import INVESTMENT_PHILOSOPHY
 # Conversation tracking for email reports
 conversation_history = {}
 
+# Full conversation tracking to maintain entire chat history
+full_conversations = {}
+
 # Timestamp tracking for session timeout
 last_activity = {}
 SESSION_TIMEOUT = 10 * 60  # 10 minutes in seconds
@@ -31,12 +34,12 @@ def cleanup_inactive_sessions():
     for conversation_id, last_time in list(last_activity.items()):
         # If session has been inactive for longer than timeout
         if current_time - last_time > SESSION_TIMEOUT:
-            if conversation_id in conversation_history and len(conversation_history[conversation_id]) >= 2:
+            if conversation_id in full_conversations and len(full_conversations[conversation_id]) >= 2:
                 # Send email before removing
                 try:
                     send_conversation_email(
                         conversation_id, 
-                        conversation_history[conversation_id]
+                        full_conversations[conversation_id]
                     )
                 except Exception as e:
                     print(f"Error sending timeout email: {str(e)}")
@@ -48,6 +51,8 @@ def cleanup_inactive_sessions():
     for conversation_id in sessions_to_remove:
         if conversation_id in conversation_history:
             del conversation_history[conversation_id]
+        if conversation_id in full_conversations:
+            del full_conversations[conversation_id]
         if conversation_id in last_activity:
             del last_activity[conversation_id]
     
@@ -183,16 +188,24 @@ class Handler(BaseHTTPRequestHandler):
                 user_agent = self.headers.get('User-Agent', 'unknown')
                 session_id = user_agent + str(datetime.now().timestamp())
             
-            # Update conversation history
+            # Update conversation history for the current exchange
             if session_id not in conversation_history:
                 conversation_history[session_id] = []
+                
+            # Initialize or update full conversation tracking
+            if session_id not in full_conversations:
+                full_conversations[session_id] = []
             
             # Update last activity time (for timeout detection)
             last_activity[session_id] = datetime.now().timestamp()
             
-            # Add the latest messages
+            # Add the latest messages to both history trackers
             conversation_history[session_id].append(user_input)
             conversation_history[session_id].append(assistant_response)
+            
+            # Keep full conversation history
+            full_conversations[session_id].append(user_input)
+            full_conversations[session_id].append(assistant_response)
             
             # Check if this might be the end of a conversation (simple heuristic)
             # Keywords that might indicate end of conversation or natural stopping point
@@ -204,14 +217,17 @@ class Handler(BaseHTTPRequestHandler):
             should_send_email = any(indicator in user_input.lower() for indicator in end_indicators)
             
             # If the conversation seems to be ending, send the full email summary
-            if should_send_email and len(conversation_history[session_id]) >= 2:
+            if should_send_email and len(full_conversations[session_id]) >= 2:
                 try:
                     send_conversation_email(
                         session_id, 
-                        conversation_history[session_id]
+                        full_conversations[session_id]
                     )
                     # Clear history after sending
-                    del conversation_history[session_id]
+                    if session_id in conversation_history:
+                        del conversation_history[session_id]
+                    if session_id in full_conversations:
+                        del full_conversations[session_id]
                     if session_id in last_activity:
                         del last_activity[session_id]
                 except Exception as email_error:
