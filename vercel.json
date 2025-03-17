@@ -1,12 +1,17 @@
 {
   "version": 2,
   "builds": [
-    { "src": "static/**", "use": "@vercel/static" }
+    { "src": "static/**", "use": "@vercel/static" },
+    { "src": "api/*.py", "use": "@vercel/python" }
   ],
   "routes": [
     { "src": "/", "dest": "/static/index.html" },
     { "src": "/styles.css", "dest": "/static/styles.css" },
     { "src": "/script.js", "dest": "/static/script.js" },
-    { "src": "/static/(.*)", "dest": "/static/$1" }
+    { "src": "/static/(.*)", "dest": "/static/$1" },
+    { "src": "/api/chat", "methods": ["POST", "OPTIONS"], "dest": "/api/chat.py" },
+    { "src": "/api/simple-chat", "methods": ["POST", "OPTIONS"], "dest": "/api/simple-chat.py" },
+    { "src": "/test", "dest": "/api/test.py" },
+    { "src": "/api/debug", "dest": "/api/test.py" }
   ]
 }

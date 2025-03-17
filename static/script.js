@@ -88,58 +88,112 @@ document.addEventListener('DOMContentLoaded', function() {
     // Try to load S3 images on page load
     setTimeout(tryLoadS3Images, 1000);
     
-    // Static deployment - backend status check simplified
+    // Check if backend APIs are available
     function checkBackendStatus() {
-        console.log("Static deployment - no backend to check");
-        backendChecked = true;
-        backendAvailable = false; // We're in static mode without backend APIs
+        if (backendChecked) return Promise.resolve(backendAvailable);
         
-        // Show a simple notice about the static mode
-        const staticNotice = document.createElement('div');
-        staticNotice.style.position = 'fixed';
-        staticNotice.style.bottom = '10px';
-        staticNotice.style.right = '10px';
-        staticNotice.style.background = 'rgba(52, 152, 219, 0.7)';
-        staticNotice.style.color = 'white';
-        staticNotice.style.padding = '10px';
-        staticNotice.style.borderRadius = '5px';
-        staticNotice.style.zIndex = '1000';
-        staticNotice.style.maxWidth = '300px';
-        staticNotice.innerHTML = `Static Mode: Chat functionality coming soon!`;
+        console.log("Checking backend status...");
         
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-            staticNotice.style.opacity = '0';
-            staticNotice.style.transition = 'opacity 1s';
-            setTimeout(() => staticNotice.remove(), 1000);
-        }, 5000);
-        
-        document.body.appendChild(staticNotice);
-        
-        return Promise.resolve(false);
+        // Try the simple test endpoint
+        return fetch('/test')
+            .then(response => {
+                if (response.ok) {
+                    console.log("API test endpoint is responding!");
+                    backendChecked = true;
+                    backendAvailable = true;
+                    return true;
+                } else {
+                    console.error("API test is not responding:", response.status);
+                    backendChecked = true;
+                    backendAvailable = false;
+                    throw new Error(`API returned status ${response.status}`);
+                }
+            })
+            .catch(error => {
+                console.error("Error checking backend:", error);
+                backendChecked = true;
+                backendAvailable = false;
+                
+                // Show a notice about backend issues
+                const staticNotice = document.createElement('div');
+                staticNotice.style.position = 'fixed';
+                staticNotice.style.bottom = '10px';
+                staticNotice.style.right = '10px';
+                staticNotice.style.background = 'rgba(230, 126, 34, 0.7)';
+                staticNotice.style.color = 'white';
+                staticNotice.style.padding = '10px';
+                staticNotice.style.borderRadius = '5px';
+                staticNotice.style.zIndex = '1000';
+                staticNotice.style.maxWidth = '300px';
+                staticNotice.innerHTML = `Backend services unavailable. Chat functionality limited.`;
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    staticNotice.style.opacity = '0';
+                    staticNotice.style.transition = 'opacity 1s';
+                    setTimeout(() => staticNotice.remove(), 1000);
+                }, 5000);
+                
+                document.body.appendChild(staticNotice);
+                
+                return false;
+            });
     }
     
     // Landing page transitions
     startChatButton.addEventListener('click', function() {
-        // Show static notice
-        checkBackendStatus();
-        
-        // Switch to chat view
-        landingSection.style.display = 'none';
-        chatSection.style.display = 'block';
-        resetButton.style.display = 'block';
-        backToLandingButton.style.display = 'block';
-        
-        // Initialize chat with a greeting (static mode)
-        if (chatMessages.children.length === 0) {
-            addTypingIndicator();
+        // First check if backend is available
+        checkBackendStatus().then(isAvailable => {
+            // Switch to chat view
+            landingSection.style.display = 'none';
+            chatSection.style.display = 'block';
+            resetButton.style.display = 'block';
+            backToLandingButton.style.display = 'block';
             
-            // Show a static greeting message
-            setTimeout(() => {
-                removeTypingIndicator();
-                addMessage('Hi there! 👋 I\'m Brooks\' personal AI assistant. This is currently in static mode, but you can check back soon for interactive chat features!', 'assistant');
-            }, 1000);
-        }
+            // Initialize chat with a greeting
+            if (chatMessages.children.length === 0) {
+                addTypingIndicator();
+                
+                if (!isAvailable) {
+                    // If backend isn't responding, show a fallback message
+                    setTimeout(() => {
+                        removeTypingIndicator();
+                        addMessage('Hi there! 👋 I\'m Brooks\' personal AI assistant. Our servers are currently busy. Please try again later!', 'assistant');
+                    }, 1000);
+                    return;
+                }
+                
+                window.setTimeout(() => {
+                    removeTypingIndicator();
+                    
+                    // Try the simple chat endpoint
+                    fetch('/api/simple-chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ user_input: 'hello' })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`API returned status ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data && data.response) {
+                            addMessage(data.response, 'assistant');
+                        } else {
+                            throw new Error('Invalid response format');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error starting conversation:', error);
+                        addMessage('Hi there! 👋 I\'m Brooks\' personal AI assistant. Ask me anything about him, his interests, projects, or background!', 'assistant');
+                    });
+                }, 1000);
+            }
+        });
     });
     
     backToLandingButton.addEventListener('click', function() {
@@ -301,8 +355,8 @@ document.addEventListener('DOMContentLoaded', function() {
         addTypingIndicator();
         isWaitingForResponse = true;
         
-        // Try the main chat endpoint first
-        fetch('/chat', {
+        // Try the API routes in order 
+        fetch('/api/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -339,7 +393,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fallback chat function that uses the simple-chat endpoint
     function tryFallbackChat(message) {
         console.log("Trying fallback chat endpoint...");
-        return fetch('/simple-chat', {
+        return fetch('/api/simple-chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -360,46 +414,40 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function resetConversation() {
         chatMessages.innerHTML = '';
+        console.log('Conversation reset locally');
         
-        fetch('/reset', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Conversation reset:', data);
-            addTypingIndicator();
+        // Simple local reset (serverless doesn't maintain session state)
+        addTypingIndicator();
+        
+        setTimeout(() => {
+            removeTypingIndicator();
             
-            window.setTimeout(() => {
-                removeTypingIndicator();
-                fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ user_input: 'hello' })
-                })
-                .then(response => response.json())
-                .then(data => {
+            // Try to get a welcome message from the API
+            fetch('/api/simple-chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user_input: 'hello' })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`API returned status ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.response) {
                     addMessage(data.response, 'assistant');
-                })
-                .catch(error => {
-                    console.error('Error starting conversation:', error);
-                    addMessage('Hi there! 👋 I\'m Brooks\' personal AI assistant. Our conversation has been reset. What would you like to know?', 'assistant');
-                });
-            }, 1000);
-        })
-        .catch(error => {
-            console.error('Error resetting conversation:', error);
-            addMessage('Failed to reset the conversation. Please try again.', 'assistant');
-        });
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            })
+            .catch(error => {
+                console.error('Error starting conversation after reset:', error);
+                addMessage('Hi there! 👋 I\'m Brooks\' personal AI assistant. Our conversation has been reset. What would you like to know?', 'assistant');
+            });
+        }, 1000);
     }
     
     // Photo modal functionality
