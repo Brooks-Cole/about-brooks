@@ -289,6 +289,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 spinner.innerHTML = '<div class="spinner"></div>';
                 container.appendChild(spinner);
                 
+                // Try to fix double extension issues if they occur
+                let cleanSrc = src;
+                // Fix potential double extensions like .jpeg.jpeg
+                const extensionRegex = /\.(jpeg|jpg|png|mov)(\.(jpeg|jpg|png|mov))$/i;
+                if (extensionRegex.test(cleanSrc)) {
+                    cleanSrc = cleanSrc.replace(extensionRegex, '.$1');
+                    console.log("Fixed double extension in URL:", cleanSrc);
+                }
+                
                 img.onload = () => {
                     spinner.remove();
                     container.appendChild(img);
@@ -296,10 +305,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 img.onerror = () => {
                     spinner.remove();
+                    console.error("Failed to load image:", cleanSrc);
                     container.innerHTML = '<p style="color: red;">Failed to load image.</p>';
                 };
                 
-                img.src = src;
+                img.src = cleanSrc;
                 
                 // Make image expandable
                 img.addEventListener('click', () => {
@@ -473,10 +483,20 @@ document.addEventListener('DOMContentLoaded', function() {
         modalContent.className = 'photo-modal-content';
         
         const img = document.createElement('img');
-        // Use the full S3 URL from the data-src attribute
-        img.src = photo.filename.includes('aboutbrooks.s3') ? 
+        
+        // Get the source URL and check for double extensions
+        let imgSrc = photo.filename.includes('aboutbrooks.s3') ? 
             photo.filename : 
             `https://aboutbrooks.s3.us-east-1.amazonaws.com/${photo.filename}`;
+            
+        // Fix potential double extensions like .jpeg.jpeg
+        const extensionRegex = /\.(jpeg|jpg|png|mov)(\.(jpeg|jpg|png|mov))$/i;
+        if (extensionRegex.test(imgSrc)) {
+            imgSrc = imgSrc.replace(extensionRegex, '.$1');
+            console.log("Fixed double extension in modal URL:", imgSrc);
+        }
+        
+        img.src = imgSrc;
         img.alt = photo.title;
         
         const caption = document.createElement('div');
