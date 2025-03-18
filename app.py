@@ -188,6 +188,13 @@ PLATFORMS = {
         'authorize_url': 'https://www.reddit.com/api/v1/authorize',
         'token_url': 'https://www.reddit.com/api/v1/access_token',
         'scopes': ['identity', 'read']
+    },
+    'discord': {
+        'client_id': os.environ.get('DISCORD_CLIENT_ID', 'your_discord_client_id'),
+        'client_secret': os.environ.get('DISCORD_CLIENT_SECRET', 'your_discord_client_secret'),
+        'authorize_url': 'https://discord.com/api/oauth2/authorize',
+        'token_url': 'https://discord.com/api/oauth2/token',
+        'scopes': ['identify']
     }
 }
 
@@ -511,6 +518,15 @@ def chat():
                                 user_data = resp.json()
                                 social_data += f"  - Reddit Username: u/{user_data.get('name', 'unknown')}\n"
                                 social_data += f"  - Karma: {user_data.get('total_karma', 0)}\n"
+                        
+                        elif platform == 'discord':
+                            # Get Discord data if connected
+                            resp = client.get('https://discord.com/api/users/@me', token=token)
+                            if resp.status_code == 200:
+                                user_data = resp.json()
+                                social_data += f"  - Discord Username: {user_data.get('username', 'unknown')}\n"
+                                if 'discriminator' in user_data and user_data['discriminator'] != '0':
+                                    social_data += f"  - Discord Tag: #{user_data.get('discriminator', '0000')}\n"
                     
                     except Exception as e:
                         print(f"Error fetching social data for {platform}: {str(e)}")
