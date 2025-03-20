@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - aboutBrooks</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #3498db;
+            margin: 0;
+        }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .status-indicator.online {
+            background-color: #d5f5e3;
+            color: #27ae60;
+        }
+        .status-indicator.offline {
+            background-color: #fadbd8;
+            color: #e74c3c;
+        }
+        .status-indicator .indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-indicator.online .indicator {
+            background-color: #27ae60;
+        }
+        .status-indicator.offline .indicator {
+            background-color: #e74c3c;
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .dashboard-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            overflow: hidden;
+        }
+        .dashboard-card h2 {
+            margin-top: 0;
+            color: #3498db;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 5px 0;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        .chart-container {
+            width: 100%;
+            height: 300px;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .data-table th {
+            background-color: #f8f9fa;
+            color: #3498db;
+        }
+        .data-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #7f8c8d;
+        }
+        .loading::after {
+            content: "...";
+            animation: loading 1.5s infinite;
+        }
+        @keyframes loading {
+            0% { content: "."; }
+            33% { content: ".."; }
+            66% { content: "..."; }
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>aboutBrooks Admin Dashboard</h1>
+            <div class="header-actions">
+                <button id="refreshData" class="btn">Refresh Data</button>
+                <a href="/" class="btn">View Site</a>
+            </div>
+        </div>
+
+        <!-- Database Status Indicator -->
+        <div class="status-indicator {% if db_connected %}online{% else %}offline{% endif %}" id="dbStatus">
+            <div class="indicator"></div>
+            <span>
+                {% if db_connected %}
+                MongoDB Connection: Online
+                {% else %}
+                MongoDB Connection: Offline
+                {% endif %}
+            </span>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="dashboard-grid">
+            <!-- User Statistics -->
+            <div class="dashboard-card">
+                <h2>User Stats</h2>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalUsers">
+                            {% if summary and summary.user_metrics %}
+                                {{ summary.user_metrics.total_users }}
+                            {% else %}
+                                --
+                            {% endif %}
+                        </div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="activeUsers">
+                            {% if summary and summary.user_metrics %}
+                                {{ summary.user_metrics.active_users_7d }}
+                            {% else %}
+                                --
+                            {% endif %}
+                        </div>
+                        <div class="stat-label">Active Users (7d)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="connectionRate">
+                            {% if summary and summary.platform_metrics %}
+                                {{ summary.platform_metrics.connection_rate }}%
+                            {% else %}
+                                --
+                            {% endif %}
+                        </div>
+                        <div class="stat-label">Platform Connection Rate</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalChats">
+                            {% if summary and summary.user_metrics %}
+                                {{ summary.user_metrics.total_chat_interactions }}
+                            {% else %}
+                                --
+                            {% endif %}
+                        </div>
+                        <div class="stat-label">Total Chat Interactions</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Platform Statistics -->
+            <div class="dashboard-card">
+                <h2>Platform Connections</h2>
+                <div id="platformStatsContainer" class="chart-container">
+                    <canvas id="platformStatsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- User Interests -->
+            <div class="dashboard-card">
+                <h2>Top User Interests</h2>
+                <div id="interestsContainer" class="chart-container">
+                    <canvas id="interestsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- User Activity Over Time -->
+            <div class="dashboard-card full-width">
+                <h2>User Activity (30 Days)</h2>
+                <div id="activityContainer" class="chart-container">
+                    <canvas id="activityChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Recent Active Users -->
+            <div class="dashboard-card full-width">
+                <h2>Recent Active Users</h2>
+                <div id="recentUsersContainer">
+                    <div class="loading">Loading</div>
+                </div>
+            </div>
+
+            <!-- Chat Topics -->
+            <!-- Feedback Stats Card -->
+            <div class="dashboard-card">
+                <h2>Feedback Stats</h2>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalFeedback">
+                            {% if summary and summary.feedback_metrics %}
+                                {{ summary.feedback_metrics.total_feedback }}
+                            {% else %}
+                                --
+                            {% endif %}
+                        </div>
+                        <div class="stat-label">Total Feedback</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="positiveFeedback">
+                            {% if summary and summary.feedback_metrics %}
+                                {{ summary.feedback_metrics.positive_feedback }}
+                            {% else %}
+                                --
+                            {% endif %}
+                        </div>
+                        <div class="stat-label">Positive Feedback</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="feedbackRate">
+                            {% if summary and summary.feedback_metrics %}
+                                {{ summary.feedback_metrics.feedback_rate }}%
+                            {% else %}
+                                --
+                            {% endif %}
+                        </div>
+                        <div class="stat-label">Feedback Rate</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="positiveRate">
+                            {% if summary and summary.feedback_metrics %}
+                                {{ summary.feedback_metrics.positive_rate }}%
+                            {% else %}
+                                --
+                            {% endif %}
+                        </div>
+                        <div class="stat-label">Positive Rate</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-card">
+                <h2>Popular Chat Topics</h2>
+                <div id="chatTopicsContainer" class="chart-container">
+                    <canvas id="chatTopicsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Generated at: {{ current_time }}</p>
+            <p>aboutBrooks Admin Dashboard v1.0</p>
+        </div>
+    </div>
+
+    <script>
+        // Dashboard JavaScript
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load all data on page load
+            loadAllData();
+            
+            // Set up refresh button
+            document.getElementById('refreshData').addEventListener('click', loadAllData);
+            
+            // Set up periodic check of database status
+            setInterval(checkDbStatus, 60000); // Check every minute
+        });
+        
+        // Function to load all dashboard data
+        function loadAllData() {
+            loadPlatformStats();
+            loadInterests();
+            loadUserActivity();
+            loadRecentUsers();
+            loadChatTopics();
+            checkDbStatus();
+        }
+        
+        // Check database connection status
+        function checkDbStatus() {
+            fetch('/admin/api/db-status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusEl = document.getElementById('dbStatus');
+                    if (data.connected) {
+                        statusEl.className = 'status-indicator online';
+                        statusEl.innerHTML = '<div class="indicator"></div><span>MongoDB Connection: Online</span>';
+                    } else {
+                        statusEl.className = 'status-indicator offline';
+                        statusEl.innerHTML = '<div class="indicator"></div><span>MongoDB Connection: Offline</span>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking DB status:', error);
+                    const statusEl = document.getElementById('dbStatus');
+                    statusEl.className = 'status-indicator offline';
+                    statusEl.innerHTML = '<div class="indicator"></div><span>MongoDB Connection: Error</span>';
+                });
+        }
+        
+        // Load platform statistics
+        function loadPlatformStats() {
+            fetch('/admin/api/platform-stats')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('platformStatsChart').getContext('2d');
+                    
+                    // Extract labels and data from API response
+                    const labels = data.map(item => item._id);
+                    const values = data.map(item => item.count);
+                    
+                    // Create chart
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Connected Users',
+                                data: values,
+                                backgroundColor: '#3498db',
+                                borderColor: '#2980b9',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Platform Connections'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    precision: 0
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading platform stats:', error);
+                    document.getElementById('platformStatsContainer').innerHTML = 
+                        '<div style="color: #e74c3c; padding: 20px; text-align: center;">Error loading platform data</div>';
+                });
+        }
+        
+        // Load user interests
+        function loadInterests() {
+            fetch('/admin/api/interests')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('interestsChart').getContext('2d');
+                    
+                    // Extract labels and data from API response
+                    const labels = data.map(item => item._id);
+                    const values = data.map(item => item.count);
+                    
+                    // Create chart
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: values,
+                                backgroundColor: [
+                                    '#3498db', '#2ecc71', '#e74c3c', '#f39c12', 
+                                    '#9b59b6', '#1abc9c', '#d35400', '#34495e'
+                                ]
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'right'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'User Interests'
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading interests:', error);
+                    document.getElementById('interestsContainer').innerHTML = 
+                        '<div style="color: #e74c3c; padding: 20px; text-align: center;">Error loading interest data</div>';
+                });
+        }
+        
+        // Load user activity over time
+        function loadUserActivity() {
+            fetch('/admin/api/activity-over-time')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('activityChart').getContext('2d');
+                    
+                    // Extract data from API response
+                    const dates = data.map(item => item.date);
+                    const interactions = data.map(item => item.interactions);
+                    const uniqueUsers = data.map(item => item.unique_users);
+                    
+                    // Create chart
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [
+                                {
+                                    label: 'Chat Interactions',
+                                    data: interactions,
+                                    borderColor: '#3498db',
+                                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                    borderWidth: 2,
+                                    fill: true
+                                },
+                                {
+                                    label: 'Unique Users',
+                                    data: uniqueUsers,
+                                    borderColor: '#2ecc71',
+                                    backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                                    borderWidth: 2,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: 'User Activity Over Time'
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'day',
+                                        tooltipFormat: 'MMM d, yyyy'
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Date'
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Count'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading activity data:', error);
+                    document.getElementById('activityContainer').innerHTML = 
+                        '<div style="color: #e74c3c; padding: 20px; text-align: center;">Error loading activity data</div>';
+                });
+        }
+        
+        // Load recent active users
+        function loadRecentUsers() {
+            fetch('/admin/api/recent-users')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('recentUsersContainer');
+                    
+                    if (data.length === 0) {
+                        container.innerHTML = '<p>No active users found.</p>';
+                        return;
+                    }
+                    
+                    // Create table
+                    let html = `
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>User ID</th>
+                                    <th>Last Seen</th>
+                                    <th>Visit Count</th>
+                                    <th>Platforms</th>
+                                    <th>Interests</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    // Add rows
+                    data.forEach(user => {
+                        const lastSeen = new Date(user.last_seen).toLocaleString();
+                        const platforms = user.platforms.join(', ') || 'None';
+                        const interests = user.top_interests.join(', ') || 'None';
+                        
+                        html += `
+                            <tr>
+                                <td>${user.user_id}</td>
+                                <td>${lastSeen}</td>
+                                <td>${user.visit_count}</td>
+                                <td>${platforms}</td>
+                                <td>${interests}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                            </tbody>
+                        </table>
+                    `;
+                    
+                    container.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error loading recent users:', error);
+                    document.getElementById('recentUsersContainer').innerHTML = 
+                        '<div style="color: #e74c3c; padding: 20px; text-align: center;">Error loading user data</div>';
+                });
+        }
+        
+        // Load chat topics
+        function loadChatTopics() {
+            fetch('/admin/api/chat-topics')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('chatTopicsChart').getContext('2d');
+                    
+                    // Extract labels and data from API response
+                    const labels = data.map(item => item.topic);
+                    const values = data.map(item => item.count);
+                    
+                    // Create chart
+                    new Chart(ctx, {
+                        type: 'polarArea',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: values,
+                                backgroundColor: [
+                                    'rgba(52, 152, 219, 0.7)',
+                                    'rgba(46, 204, 113, 0.7)',
+                                    'rgba(231, 76, 60, 0.7)',
+                                    'rgba(241, 196, 15, 0.7)',
+                                    'rgba(155, 89, 182, 0.7)',
+                                    'rgba(26, 188, 156, 0.7)',
+                                    'rgba(211, 84, 0, 0.7)',
+                                    'rgba(52, 73, 94, 0.7)'
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'right'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Popular Chat Topics'
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading chat topics:', error);
+                    document.getElementById('chatTopicsContainer').innerHTML = 
+                        '<div style="color: #e74c3c; padding: 20px; text-align: center;">Error loading topic data</div>';
+                });
+        }
+    </script>
+</body>
+</html>

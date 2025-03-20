@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect Your Social Accounts</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .oauth-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .platform-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .platform-card {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            width: 200px;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .platform-card:hover {
+            transform: translateY(-5px);
+        }
+        .platform-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        .platform-name {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .platform-connect {
+            display: inline-block;
+            padding: 8px 15px;
+            background-color: #3498db;
+            color: white;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-top: 10px;
+        }
+        .platform-connected {
+            background-color: #27ae60;
+        }
+        .consent-box {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 5px solid #3498db;
+        }
+        .back-button {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 10px 20px;
+            background-color: #34495e;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="oauth-container">
+        <h1>Connect Your Social Accounts</h1>
+        <p>Connect your social media accounts to enhance your chat experience with Brooks' AI assistant.</p>
+        
+        <div class="consent-box">
+            <p><input type="checkbox" id="consent" {% if session.get('consent') %}checked{% endif %}> 
+            I consent to letting this chatbot access my social media data for a more personalized experience.</p>
+            <p><small>Your data will only be used to enhance your chat experience and will not be stored or shared with third parties.</small></p>
+        </div>
+        
+        <div id="connect" {% if not session.get('consent') %}style="display:none"{% endif %}>
+            <h2>Available Platforms</h2>
+            <div class="platform-list">
+                {% for platform in platforms %}
+                    <div class="platform-card">
+                        <div class="platform-icon">
+                            {% if platform == 'x' %}
+                                <i class="fab fa-x-twitter"></i>
+                            {% elif platform == 'instagram' %}
+                                <i class="fab fa-instagram"></i>
+                            {% elif platform == 'spotify' %}
+                                <i class="fab fa-spotify"></i>
+                            {% elif platform == 'youtube' %}
+                                <i class="fab fa-youtube"></i>
+                            {% elif platform == 'facebook' %}
+                                <i class="fab fa-facebook"></i>
+                            {% elif platform == 'linkedin' %}
+                                <i class="fab fa-linkedin"></i>
+                            {% elif platform == 'tiktok' %}
+                                <i class="fab fa-tiktok"></i>
+                            {% else %}
+                                <i class="fas fa-link"></i>
+                            {% endif %}
+                        </div>
+                        <div class="platform-name">{{ platform|capitalize }}</div>
+                        {% if platform in connected %}
+                            <p><span class="platform-connect platform-connected">Connected</span></p>
+                        {% else %}
+                            <a href="{{ url_for('connect', platform=platform) }}" class="platform-connect">Connect</a>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <a href="/" class="back-button"><i class="fas fa-arrow-left"></i> Back to Chat</a>
+    </div>
+
+    <script>
+        document.getElementById('consent').addEventListener('change', async function() {
+            const connectSection = document.getElementById('connect');
+            connectSection.style.display = this.checked ? 'block' : 'none';
+            
+            // Send consent status to server
+            await fetch('/set-consent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ consent: this.checked })
+            }).then(response => {
+                if (response.ok) {
+                    console.log(`OAuth consent set to: ${this.checked}`);
+                } else {
+                    console.error('Failed to set consent status');
+                }
+            }).catch(err => {
+                console.error('Error setting consent:', err);
+            });
+        });
+    </script>
+</body>
+</html>

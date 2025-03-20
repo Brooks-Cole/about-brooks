@@ -1,29 +1,77 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log("Document loaded - script running!");
     
-    // Import and initialize data collector
-    import('./data_collection.js')
-        .then(module => {
-            const LolaDataCollector = module.default;
-            // Initialize with default settings
-            LolaDataCollector.initialize();
-            console.log("Data collector initialized");
-            
-            // Show the opt-in experience after a delay
-            setTimeout(() => {
-                // Only show if the user hasn't made a choice yet
-                if (!localStorage.getItem('lola_enhancedExperienceShown')) {
-                    LolaDataCollector.offerEnhancedExperience((choice) => {
-                        console.log(`User chose ${choice ? 'enhanced' : 'basic'} experience`);
-                        localStorage.setItem('lola_enhancedExperienceShown', 'true');
-                        // Update your AI with the new data permissions
-                    });
-                }
-            }, 30000); // Show after 30 seconds
-        })
-        .catch(error => {
-            console.error("Error loading data collector:", error);
+    // Handle dropdown navigation for mobile users
+    const navToggle = document.querySelector('.nav-toggle');
+    const navContent = document.querySelector('.nav-content');
+
+    if (navToggle && navContent) {
+        navToggle.addEventListener('click', function() {
+            navContent.style.display = navContent.style.display === 'block' ? 'none' : 'block';
         });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!navToggle.contains(e.target) && !navContent.contains(e.target)) {
+                navContent.style.display = 'none';
+            }
+        });
+    }
+    
+    // Handle consent toggle for OAuth features if the element exists
+    const consentCheckbox = document.getElementById('consent');
+    if (consentCheckbox) {
+        consentCheckbox.addEventListener('change', async function() {
+            await fetch('/set-consent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ consent: this.checked })
+            }).then(response => {
+                if (response.ok) {
+                    console.log(`OAuth consent set to: ${this.checked}`);
+                } else {
+                    console.error('Failed to set consent status');
+                }
+            }).catch(err => {
+                console.error('Error setting consent:', err);
+            });
+        });
+    }
+    
+    // Import data collector and prompt integration
+    Promise.all([
+        import('/static/data_collection.js'),
+        import('/static/prompt-integration.js')
+    ]).then(([dataCollectorModule, promptIntegrationModule]) => {
+        // Store modules globally for later use
+        window.LolaDataCollector = dataCollectorModule.default;
+        window.promptIntegration = promptIntegrationModule;
+        
+        // Initialize data collector with default settings
+        window.LolaDataCollector.initialize();
+        console.log("Data collector initialized");
+        
+        // Set up periodic updates to keep AI context fresh
+        setInterval(() => {
+            promptIntegrationModule.updateAIPrompt();
+        }, 300000); // Update every 5 minutes
+        
+        // Show the opt-in experience after a delay
+        setTimeout(() => {
+            // Only show if the user hasn't made a choice yet
+            if (!localStorage.getItem('lola_enhancedExperienceShown')) {
+                window.LolaDataCollector.offerEnhancedExperience((choice) => {
+                    console.log(`User chose ${choice ? 'enhanced' : 'basic'} experience`);
+                    localStorage.setItem('lola_enhancedExperienceShown', 'true');
+                    
+                    // Force an immediate update after the choice is made
+                    promptIntegrationModule.updateAIPrompt();
+                });
+            }
+        }, 30000); // Show after 30 seconds
+    }).catch(error => {
+        console.error("Error loading modules:", error);
+    });
     
     // Simplified viewport height function
     function setVh() {
@@ -164,6 +212,32 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     
+    // Fun fact button handler
+    const funFactButton = document.getElementById('fun-fact-button');
+    if (funFactButton) {
+        funFactButton.addEventListener('click', function() {
+            fetch('/api/simple-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_input: 'Tell me a fun fact about Brooks!' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.response) {
+                    // Show the fun fact in a popup or alert
+                    alert(data.response);
+                    // Optionally, auto-start the chat
+                    startChatButton.click();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching fun fact:', error);
+                alert("Oops, couldn't fetch a fun fact. Let's chat instead!");
+                startChatButton.click();
+            });
+        });
+    }
+    
     // Landing page transitions
     startChatButton.addEventListener('click', function() {
         // First check if backend is available
@@ -294,6 +368,18 @@ document.addEventListener('DOMContentLoaded', function() {
         textContainer.innerHTML = messageText;
         messageDiv.appendChild(textContainer);
         
+        // Add feedback button for assistant messages
+        if (sender === 'assistant') {
+            const feedbackDiv = document.createElement('div');
+            feedbackDiv.className = 'feedback';
+            feedbackDiv.innerHTML = `
+                <span>Was this helpful?</span>
+                <button class="feedback-btn" data-value="yes">Yes</button>
+                <button class="feedback-btn" data-value="no">No</button>
+            `;
+            messageDiv.appendChild(feedbackDiv);
+        }
+        
         // Load inline images
         if (links) {
             const containers = textContainer.querySelectorAll('.inline-photo-container');
@@ -389,13 +475,23 @@ document.addEventListener('DOMContentLoaded', function() {
         addTypingIndicator();
         isWaitingForResponse = true;
         
-        // Try the API routes in order 
-        fetch('/api/chat', {
+        // Get user data from collector if available
+        let userData = null;
+        if (window.LolaDataCollector) {
+            userData = window.LolaDataCollector.getAllData();
+            console.log("Including user data in request:", userData);
+        }
+        
+        // Try the API routes in order with user data - first try the primary /chat endpoint
+        fetch('/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ user_input: message })
+            body: JSON.stringify({ 
+                user_input: message,
+                user_data: userData
+            })
         })
         .then(response => {
             if (!response.ok) {
@@ -427,12 +523,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fallback chat function that uses the simple-chat endpoint
     function tryFallbackChat(message) {
         console.log("Trying fallback chat endpoint...");
+        
+        // Get user data from collector if available (simplified for fallback)
+        let userData = null;
+        if (window.LolaDataCollector) {
+            userData = {
+                deviceType: window.LolaDataCollector.userData.basic.deviceType,
+                visitTime: window.LolaDataCollector.userData.basic.visitTime
+            };
+        }
+        
         return fetch('/api/simple-chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ user_input: message })
+            body: JSON.stringify({ 
+                user_input: message,
+                user_data: userData
+            })
         })
         .then(response => {
             if (!response.ok) {
@@ -553,6 +662,34 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closePhotoModal();
+        }
+    });
+    
+    // Add feedback handling
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('feedback-btn')) {
+            const value = e.target.getAttribute('data-value');
+            const messageDiv = e.target.closest('.message');
+            const messageText = messageDiv.querySelector('.message-text').textContent;
+            
+            // Send feedback to the server
+            fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: messageText,
+                    feedback: value
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    e.target.parentElement.innerHTML = 'Thanks for your feedback!';
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting feedback:', error);
+            });
         }
     });
 

@@ -97,6 +97,49 @@ header {
     color: var(--primary-color);
 }
 
+/* Dropdown Navigation Styles */
+.nav-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.nav-toggle {
+    background: none;
+    border: none;
+    color: #3498db;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px 10px;
+}
+
+.nav-content {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+}
+
+.nav-content a {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+
+.nav-content a:hover {
+    background-color: #f1f1f1;
+}
+
+.nav-dropdown:hover .nav-content {
+    display: block;
+}
+
+.nav-dropdown:hover .nav-toggle {
+    background-color: #e0e0e0;
+}
+
 .profile-info p {
     color: var(--light-text);
     font-size: 0.9rem;
@@ -214,6 +257,26 @@ main {
 
 #send-button:hover {
     background-color: var(--highlight-color);
+}
+
+/* Disclaimer Banner */
+.disclaimer-banner {
+    background-color: #e6f7ff;
+    color: #0066cc;
+    padding: 12px 20px;
+    text-align: center;
+    border-top: 1px solid #b3e0ff;
+    border-bottom: 1px solid #b3e0ff;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.disclaimer-banner p {
+    margin: 0;
+}
+
+.disclaimer-banner strong {
+    font-weight: 600;
 }
 
 /* Footer Styles */
@@ -538,6 +601,29 @@ button {
     background-color: var(--highlight-color);
 }
 
+#fun-fact-button {
+    background-color: #f39c12;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 25px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    display: inline-flex;
+    align-items: center;
+    margin-left: 10px;
+}
+
+#fun-fact-button i {
+    margin-left: 8px;
+}
+
+#fun-fact-button:hover {
+    background-color: #e67e22;
+}
+
 #back-to-landing, #reset-button {
     background-color: transparent;
     color: var(--light-text);
@@ -742,6 +828,18 @@ button {
         text-align: center;
     }
     
+    .intro-cta {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    #start-chat-button, #fun-fact-button {
+        width: 100%;
+        margin-bottom: 10px;
+        margin-left: 0;
+    }
+    
     .profile-picture {
         margin-right: 0;
         margin-bottom: 10px;
@@ -794,6 +892,26 @@ button {
     }
 }
 
+/* Feedback button styles */
+.feedback {
+    margin-top: 5px;
+    font-size: 12px;
+    color: #666;
+}
+
+.feedback-btn {
+    background: none;
+    border: 1px solid #ccc;
+    padding: 2px 8px;
+    margin-left: 5px;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.feedback-btn:hover {
+    background-color: #f0f0f0;
+}
+
 /* Extra small devices */
 @media (max-width: 360px) {
     .profile-info h1 {
@@ -840,5 +958,10 @@ button {
     .social-links a {
         font-size: 1rem;
         margin-right: 8px;
+    }
+    
+    .feedback-btn {
+        padding: 1px 6px;
+        font-size: 11px;
     }
 }
