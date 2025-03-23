@@ -75,8 +75,8 @@
         
         <div class="consent-box">
             <p><input type="checkbox" id="consent" {% if session.get('consent') %}checked{% endif %}> 
-            I consent to letting this chatbot access my social media data for a more personalized experience.</p>
-            <p><small>Your data will only be used to enhance your chat experience and will not be stored or shared with third parties.</small></p>
+            I confirm I am at least 18 years old and I consent to letting this chatbot access my social media data for a more personalized experience.</p>
+            <p><small>Your data will only be used to enhance your chat experience and will not be stored or shared with third parties. <a href="/privacy" target="_blank">View Privacy Policy</a></small></p>
         </div>
         
         <div id="connect" {% if not session.get('consent') %}style="display:none"{% endif %}>

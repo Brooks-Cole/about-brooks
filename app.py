@@ -1280,7 +1280,10 @@ def platform_data():
 # Consent endpoint (for frontend to toggle)
 @app.route('/set-consent', methods=['POST'])
 def set_consent():
-    session['consent'] = request.json.get('consent', False) if request.json else False
+    # Set both consent and age verification with the same checkbox
+    consent_value = request.json.get('consent', False) if request.json else False
+    session['consent'] = consent_value
+    session['age_verified'] = consent_value  # Age verification is now part of the consent checkbox
     session.modified = True
     return {'status': 'success'}
 
