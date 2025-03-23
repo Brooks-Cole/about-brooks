@@ -37,6 +37,12 @@ const LolaDataCollector = {
   // Set user preference
   setUserPreference: function(key, value) {
     console.log(`Setting preference ${key} to ${value}`);
+  },
+  
+  // Offer enhanced experience
+  offerEnhancedExperience: function(callback) {
+    console.log('Enhanced experience offer shown (simplified)');
+    callback(false); // Default to basic experience
   }
 };
 

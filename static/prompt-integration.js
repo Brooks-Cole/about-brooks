@@ -32,7 +32,7 @@ function getSystemPrompt(profile) {
   // Extract key information for formatting
   const name = profile["name"];
   const profession = profile["profession"];
-  const location = profile.get("location", "the East Coast");
+  const location = profile["location"] || "the East Coast";
 
   // Format interests and projects
   const interests_list = profile["interests"].join(", ");

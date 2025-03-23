@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for, render_template_string
+from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for, render_template_string, make_response
 from flask_cors import CORS
 import anthropic
 from anthropic.types import MessageParam, ContentBlock
@@ -289,17 +289,84 @@ def debug_route():
         "env_vars_present": {
             "ANTHROPIC_API_KEY": bool(os.environ.get('ANTHROPIC_API_KEY')),
             "SECRET_KEY": bool(os.environ.get('SECRET_KEY')),
-            "AWS_ACCESS_KEY_ID": bool(os.environ.get('AWS_ACCESS_KEY_ID')),
-            "AWS_SECRET_ACCESS_KEY": bool(os.environ.get('AWS_SECRET_ACCESS_KEY')),
-            "AWS_S3_BUCKET": bool(os.environ.get('AWS_S3_BUCKET'))
+            "AWS_ACCESS_KEY_ID": bool(os.environ.get('AWS_ACCESS_KEY_ID'))
         }
     })
+        
+@app.route('/api/simple-chat', methods=['POST', 'OPTIONS'])
+def simple_chat():
+    """Simple chat endpoint for fallback functionality"""
+    if request.method == 'OPTIONS':
+        # Handle CORS preflight request
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response
+    
+    try:
+        data = request.json
+        user_input = data.get('user_input', '')
+        user_data = data.get('user_data', None)
+        
+        # Get API key
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if not api_key:
+            return jsonify({"error": "API key not configured"}), 500
+
+        # Initialize Claude client
+        client = anthropic.Anthropic(api_key=api_key)
+        
+        # Use a simpler system prompt
+        simple_system = "You are a helpful assistant for Brooks. Keep your responses brief and friendly."
+        
+        # Add basic user context if available
+        if user_data:
+            device_type = user_data.get('deviceType', 'unknown device')
+            simple_system += f" The user is on a {device_type}."
+            
+            # Add time of day context if available
+            visit_time = user_data.get('visitTime', '')
+            if visit_time:
+                simple_system += f" They are chatting with you at {visit_time}."
+        
+        # Call Claude API
+        messages = [{"role": "user", "content": user_input}]
+        
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            system=simple_system,
+            messages=messages,
+            max_tokens=4000,
+            temperature=0.7
+        )
+        
+        # Extract response text
+        assistant_response = ""
+        if response and hasattr(response, 'content') and response.content:
+            if isinstance(response.content, list) and len(response.content) > 0:
+                content_list = list(response.content)
+                first_content = content_list[0] if content_list else None
+                if first_content is not None and hasattr(first_content, 'text'):
+                    assistant_response = first_content.text
+        
+        return jsonify({"response": assistant_response})
+        
+    except Exception as e:
+        app.logger.error(f"Error in simple chat endpoint: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 # Add a simpler test endpoint
 @app.route('/test', methods=['GET'])
 def test_route():
     """Super simple test endpoint"""
     return "API is working"
+
+# Serve privacy policy
+@app.route('/privacy', methods=['GET'])
+def privacy_policy():
+    """Serve the privacy policy page"""
+    return send_from_directory('static', 'PrivacyStatement.html')
 
 # Feedback endpoint for chat messages
 @app.route('/api/feedback', methods=['POST'])
@@ -839,7 +906,18 @@ def connect(platform):
     if client is None:
         logger.error(f"Failed to create OAuth client for platform: {platform}")
         return "OAuth client not found", 500
-    return client.authorize_redirect(redirect_uri)
+    
+    # Get the complete redirect URI
+    base_url = request.url_root.rstrip('/')
+    if base_url.endswith(':5001'):
+        # Local development
+        complete_redirect_uri = f"{base_url}/callback/{platform}"
+    else:
+        # Production
+        complete_redirect_uri = f"{base_url}/callback/{platform}"
+    
+    logger.info(f"OAuth redirect for {platform} using redirect_uri: {complete_redirect_uri}")
+    return client.authorize_redirect(complete_redirect_uri)
 
 # Handle OAuth callback
 @app.route('/callback/<platform>')
@@ -1876,7 +1954,7 @@ def check_api():
 
 
 @app.route('/simple-chat', methods=['POST'])
-def simple_chat():
+def simple_chat_endpoint():
     """Simplified chat endpoint for testing without sessions"""
     try:
         data = request.get_json()
